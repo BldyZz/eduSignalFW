@@ -1,11 +1,8 @@
 #pragma once
 
-#include "fish/fish.hpp"
-//
 #include "bootloader_commands.h"
 #include "esp_ota_ops.h"
 #include "esp_util/nvs.hpp"
-#include "fish/socket.hpp"
 
 #include <array>
 #include <chrono>
@@ -17,7 +14,7 @@
 #include <vector>
 namespace esp {
 namespace detail {
-    using namespace fish::bootloader;
+    using namespace fw::bootloader;
     struct Updater {
         static constexpr std::size_t BlockSize = 1024;
 
@@ -109,17 +106,17 @@ namespace detail {
                 throw std::runtime_error("ota begin failed");
             }
 
-            fish::TCPCSocket socket(server, port);
+            fw::TCPCSocket socket(server, port);
 
             auto                   lastCommand = std::chrono::steady_clock::now();
             std::vector<std::byte> buffer;
             std::vector<std::byte> send_buffer;
             while(socket.valid()) {
-                auto request = fish::recv_typed<RequestSet>(socket, buffer);
+                auto request = fw::recv_typed<RequestSet>(socket, buffer);
                 if(request) {
                     auto const response
                       = std::visit([this](auto const& req) { return handle(req); }, *request);
-                    fish::send_typed(socket, send_buffer, response);
+                    fw::send_typed(socket, send_buffer, response);
                     bool const failed
                       = std::visit([this](auto const& res) { return res.failed; }, response);
 

@@ -85,12 +85,12 @@ public:
 
         if(wait_for_connect_) {
             while(true) {
-                ESP_LOGW("FISH", "wlan connecting");
+                ESP_LOGW("CONNECT", "wlan connecting");
                 connect();
                 if(wait_for_connect(std::chrono::seconds{10})) {
-                    ESP_LOGW("FISH", "wlan connected");
+                    ESP_LOGW("CONNECT", "wlan connected");
                 } else {
-                    ESP_LOGW("FISH", "wlan connect timeout");
+                    ESP_LOGW("CONNECT", "wlan connect timeout");
                 }
                 return;
             }
