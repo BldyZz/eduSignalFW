@@ -41,7 +41,7 @@ public:
         spi_transaction_t t;
         std::memset(&t, 0, sizeof(t));
         t.length = data.size()*sizeof(std::byte);
-        t.tx_buffer = data;
+        t.tx_buffer = data.data();
         assert(spi_device_polling_transmit(spiDeviceHandle, &t)==ESP_OK);
     }
 

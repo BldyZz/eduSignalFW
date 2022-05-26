@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <fmt/format.h>
 
 namespace esp {
 struct spiHost {
@@ -23,6 +24,7 @@ public:
       gpio_num_t const        CLK,
       std::size_t const       transferSize,
       spi_common_dma_t const  dmaEnable) {
+        fmt::print("Initializing SPI2...\n");
         std::memset(&busConfig, 0, sizeof(busConfig));
         std::memset(&hostDevice, 0, sizeof(hostDevice));
         busConfig.miso_io_num     = MISO;
