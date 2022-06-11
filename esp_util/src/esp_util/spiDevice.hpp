@@ -37,16 +37,27 @@ public:
         ESP_ERROR_CHECK(ret);
     }
 
-    void sendBlocking(std::vector<std::byte> const& data){
+    void sendBlocking(std::vector<std::byte> const& data) const{
         spi_transaction_t t;
         std::memset(&t, 0, sizeof(t));
-        t.length = data.size()*sizeof(std::byte);
+        t.length = data.size()*sizeof(std::byte)*8;
         t.tx_buffer = data.data();
         assert(spi_device_polling_transmit(spiDeviceHandle, &t)==ESP_OK);
     }
 
-    void sendDMA(std::vector<std::byte> const& data){
-        //TODO
+    void sendDMA(std::vector<std::byte> const& data) const{
+        spi_transaction_t t;
+        std::memset(&t, 0, sizeof(t));
+        t.length = data.size()*sizeof(std::byte)*8;
+        t.tx_buffer = data.data();
+        assert(spi_device_queue_trans(spiDeviceHandle, &t, portMAX_DELAY) == ESP_OK);
+    }
+
+    void waitDMA(std::size_t messages) const{
+        spi_transaction_t *rtrans;
+        for(std::size_t i = 0; i < messages; ++i){
+            assert(spi_device_get_trans_result(spiDeviceHandle, &rtrans, portMAX_DELAY) == ESP_OK);
+        }
     }
 };
 

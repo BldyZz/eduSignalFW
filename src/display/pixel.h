@@ -8,22 +8,24 @@
 
 struct Pixel{
 private:
-    std::bitset<5> R;
-    std::bitset<6> G;
-    std::bitset<5> B;
+    std::uint16_t pixelData;
 public:
     void set(std::uint8_t const red, std::uint8_t const green, std::uint8_t const blue){
         auto lerp = [](float a, float b, float t){
             return a + t * (b-a);
         };
-        R = static_cast<std::bitset<5>>(lerp(0.0, 31.0, red/255.0));
-        G = static_cast<std::bitset<6>>(lerp(0.0, 63.0, green/255.0));
-        B = static_cast<std::bitset<5>>(lerp(0.0, 31.0, blue/255.0));
+        std::uint8_t R = static_cast<std::uint8_t>(lerp(0.0, 31.0, red/255.0));
+        std::uint8_t G = static_cast<std::uint8_t>(lerp(0.0, 63.0, green/255.0));
+        std::uint8_t B = static_cast<std::uint8_t>(lerp(0.0, 31.0, blue/255.0));
+        pixelData = static_cast<std::uint16_t>(R << 11 bitor G << 5 bitor B);
     }
     Pixel(std::uint8_t const red, std::uint8_t const green, std::uint8_t const blue){
         set(red,green,blue);
     }
     Pixel(){
         set(0,0,0);
+    }
+    std::uint16_t get() const{
+        return pixelData;
     }
 };
