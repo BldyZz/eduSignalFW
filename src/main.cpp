@@ -10,6 +10,7 @@
 #include "spiConfig.h"
 
 #include <fmt/format.h>
+#include <chrono>
 
 extern "C" void app_main() {
     esp::spiHost spi2{
@@ -19,10 +20,19 @@ extern "C" void app_main() {
       SPI2Config::SCK,
       SPI2Config::transferSize,
       SPI2Config::DMAChannel};
-    Display
-      display{spi2, displayConfig::CS, displayConfig::DC, displayConfig::RST, displayConfig::BCKL};
+    Display<displayConfig::CS, displayConfig::DC, displayConfig::RST, displayConfig::BCKL>
+      display{spi2};
+
+    auto now = std::chrono::system_clock::now();
+    auto everySecond = now + std::chrono::seconds(1);
+    while(1) {
+        now = std::chrono::system_clock::now();
+        if(now > everySecond){
+            display.handler();
+            everySecond = now + std::chrono::seconds(1);
+        }
         display.flush();
-        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
 
     return;
 }

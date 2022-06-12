@@ -1,118 +1,122 @@
 #pragma once
 
+#include "displayConfig.h"
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "freertos/task.h"
-#include "pixel.h"
 #include "initCommands.h"
-#include "displayConfig.h"
+#include "pixel.h"
 
 #include <fmt/format.h>
+#include <span>
 #include <vector>
 
 using displayPixelFormatType = std::uint16_t;
 
+auto constexpr numLineBuffers{displayConfig::displayHeight / displayConfig::parallelSend};
+auto constexpr maxTransactions{6*numLineBuffers};
 
-struct Display : private esp::spiDevice {
-private:
-    gpio_num_t DC;
-    gpio_num_t RST;
-    gpio_num_t BACKL;
-
+template <gpio_num_t CSPin, gpio_num_t DCPin, gpio_num_t RSTPin, gpio_num_t BACKLPin>
+struct Display : private esp::spiDevice<maxTransactions> {
+    //TODO: Change to buffer class!
+    std::array<std::vector<Pixel>, numLineBuffers> lineBuffers;
+    bool foo{false};
+    bool firstFlush{true};
 public:
     explicit Display(
-      esp::spiHost const& bus,
-      gpio_num_t          CS,
-      gpio_num_t          DC,
-      gpio_num_t          RST,
-      gpio_num_t          BACKL)
-      : esp::spiDevice(bus, 10 * 1000 * 1000, CS, 7, 0)
-      , DC{DC}
-      , RST{RST}
-      , BACKL{BACKL} {
+      esp::spiHost const& bus)
+      : esp::spiDevice<maxTransactions>(bus, 10 * 1000 * 1000, CSPin, 0){
         fmt::print("Initializing Display...\n");
-        gpio_set_direction(DC, GPIO_MODE_OUTPUT);
-        gpio_set_direction(RST, GPIO_MODE_OUTPUT);
-        gpio_set_direction(BACKL, GPIO_MODE_OUTPUT);
+        gpio_set_direction(DCPin, GPIO_MODE_OUTPUT);
+        gpio_set_direction(RSTPin, GPIO_MODE_OUTPUT);
+        gpio_set_direction(BACKLPin, GPIO_MODE_OUTPUT);
+        for(auto& b : lineBuffers){
+            b = std::vector<Pixel>{displayConfig::displayWidth * displayConfig::parallelSend};
+        }
         reset();
     }
-    ~Display() {
+
+    void queueData(std::span<std::byte const> package) {
+        sendDMA(package, [](){
+            gpio_set_level(DCPin, 1);});
     }
 
-    void sendData(std::vector<std::byte> const& data) const {
-        gpio_set_level(DC, 1);
-        sendBlocking(data);
-        gpio_set_level(DC, 0);
-    }
-
-    void sendCommand(std::byte const& data) const {
-        gpio_set_level(DC, 0);
-        std::vector<std::byte> dataVec{data};
-        sendBlocking(dataVec);
+    void queueCommand(std::byte const& data) {
+        sendDMA(std::span{&data, 1}, [](){
+            gpio_set_level(DCPin, 0);});
     }
 
     void reset() {
         fmt::print("Resetting Display...\n");
-        gpio_set_level(BACKL, 0);
-        gpio_set_level(RST, 0);
+        gpio_set_level(BACKLPin, 0);
+        gpio_set_level(RSTPin, 0);
         vTaskDelay(100 / portTICK_PERIOD_MS);
-        gpio_set_level(RST, 1);
+        gpio_set_level(RSTPin, 1);
         vTaskDelay(100 / portTICK_PERIOD_MS);
         sendConfig();
-        gpio_set_level(BACKL, 1);
+        gpio_set_level(BACKLPin, 1);
     }
 
     void sendConfig() {
         for(auto c : lcdInitCommmands) {
-            sendCommand(c.cmd);
-            sendData(c.data);
+            queueCommand(c.cmd);
+            queueData(c.data);
+            waitDMA(2);
             if(c.waitDelay) {
                 vTaskDelay(100 / portTICK_PERIOD_MS);
             }
         }
-        gpio_set_level(BACKL, 1);
+        gpio_set_level(BACKLPin, 1);
         fmt::print("Display is fully configured!\n");
     }
 
-    void sendLine(unsigned int const yPos, std::vector<std::byte> const& lineData) const {
-        sendCommand({std::byte{0x2A}});
-        sendData(
-          {std::byte{0},
-           std::byte{0},
-           std::byte{(displayConfig::displayWidth) >> 8},
-           std::byte{(displayConfig::displayWidth) bitand 0xff}});
-        sendCommand({std::byte{0x2B}});
-        sendData(
-          {std::byte{yPos >> 8},
-           std::byte{yPos bitand 0xff},
-           std::byte{(yPos + displayConfig::parallelSend) >> 8},
-           std::byte{(yPos + displayConfig::parallelSend) bitand 0xff}});
-        sendCommand({std::byte{0x2C}});
-        sendDMA(lineData);
+    void queueLine(unsigned int const yPos, std::span<std::byte const> lineData) {
+        queueCommand(std::byte{0x2A});
+        queueData(std::array{
+          std::byte{0},
+          std::byte{0},
+          std::byte((displayConfig::displayWidth) >> 8),
+          std::byte((displayConfig::displayWidth) bitand 0xff)});
+        queueCommand(std::byte{0x2B});
+        queueData(std::array{
+          std::byte(yPos >> 8),
+          std::byte(yPos bitand 0xff),
+          std::byte((yPos + displayConfig::parallelSend) >> 8),
+          std::byte((yPos + displayConfig::parallelSend) bitand 0xff)});
+        queueCommand(std::byte{0x2C});
+        queueData(lineData);
     }
 
-    void flush() const {
-        DRAM_ATTR static
-        std::vector<std::byte> lineBuffer(
-                displayConfig::displayWidth * sizeof(displayPixelFormatType) * displayConfig::parallelSend);
-        for(int i = 0; i < displayConfig::parallelSend; ++i){
-            for(int j = 0; j < displayConfig::displayWidth; j+=2){
-                int currentByte = (i * displayConfig::displayWidth) + j;
-                Pixel p(0,255,0);
-                lineBuffer[currentByte] = std::byte{(p.get() bitand 0xFF00) >> 8};
+    //TODO: Function is currently blocking... do not wait for DMA!
+    void flush() {
 
-                lineBuffer[currentByte + 1] = std::byte{p.get() bitand 0xFF};
-                fmt::print("0x{:2X}{:2X}, ", lineBuffer[currentByte], lineBuffer[currentByte+1]);
-            }
+        if(!firstFlush){
+            waitDMA(6);
         }
-        for(int i = 0; i < displayConfig::displayHeight; i += displayConfig::parallelSend) {
-            sendLine(i, lineBuffer);
-            waitDMA(1);
+        firstFlush = false;
+        static std::size_t cycle{};
+        static std::size_t line{};
+        if(cycle > lineBuffers.size() - 1){
+            cycle = 0;
+            line = 0;
         }
-
+        auto& lineBuffer = lineBuffers[cycle];
+        fmt::print("Queuing: cycle={} line={}\n", cycle, line);
+        queueLine(line, std::as_bytes(std::span{lineBuffer}));
+        line += displayConfig::parallelSend;
+        ++cycle;
     }
 
     void handler() {
-
+        auto& lineBuffer = lineBuffers[0];
+        if(foo){
+            lineBuffer[0].set(0,255,0);
+            foo = false;
+        }
+        else{
+            lineBuffer[0].set(0,0,0);
+            foo = true;
+        }
+        flush();
     }
 };
