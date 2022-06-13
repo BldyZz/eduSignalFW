@@ -1,18 +1,17 @@
 //
 // Created by patrick on 5/25/22.
 //
-
 #pragma once
 
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "spiHost.hpp"
+#include "transactionManager.hpp"
 
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <vector>
-#include <algorithm>
 #include <cassert>
 
 namespace esp {
@@ -22,17 +21,7 @@ struct spiDevice {
 private:
     spi_device_interface_config_t interfaceConfig;
     spi_device_handle_t           spiDeviceHandle;
-    //TODO build type for transaction and bool to document
-    std::array<std::pair<spi_transaction_t, bool>, MaxTransactions> transactions{};
-
-    spi_transaction_t& getFreeTransaction(){
-        auto it = std::ranges::find(transactions, false, [](auto const& pair){
-            return pair.second;
-        });
-        assert(it != transactions.end());
-        it->second = true;
-        return it->first;
-    }
+    TransactionManager<spi_transaction_t, MaxTransactions> transactions;
 
 public:
     explicit spiDevice(
@@ -57,8 +46,7 @@ public:
 
     template<typename F>
     void sendDMA(std::span<std::byte const> package, F callback) {
-        spi_transaction_t& t = getFreeTransaction();
-        t = spi_transaction_t{};
+        spi_transaction_t& t = transactions.getFreeTransaction();
         t.user      = reinterpret_cast<void*>(CallbackType{callback});
         t.length    = package.size_bytes() * 8;
         t.tx_buffer = package.data();
@@ -70,11 +58,7 @@ public:
         for(std::size_t i = 0; i < messages; ++i) {
             spi_transaction_t* rtrans;
             assert(spi_device_get_trans_result(spiDeviceHandle, &rtrans, portMAX_DELAY) == ESP_OK);
-            auto it = std::ranges::find(transactions, rtrans, [](auto& pair){
-                return &pair.first;
-            });
-            assert(it != transactions.end());
-            it->second = false;
+            transactions.releaseTransaction(rtrans);
         }
     }
 

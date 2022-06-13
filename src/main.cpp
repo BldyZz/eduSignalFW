@@ -1,5 +1,3 @@
-
-
 #include "display/display.hpp"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
