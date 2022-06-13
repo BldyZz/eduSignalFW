@@ -19,6 +19,11 @@ public:
         std::uint16_t B = static_cast<std::uint8_t>(lerp(0.0, 31.0, blue/255.0));
         pixelData = static_cast<std::uint16_t>(B << 11 bitor R << 5 bitor G);
     }
+
+    void set(Pixel const& pixel){
+        pixelData = pixel.get();
+    }
+    
     Pixel(std::uint8_t const red, std::uint8_t const green, std::uint8_t const blue){
         set(red,green,blue);
     }

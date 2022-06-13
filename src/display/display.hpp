@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 #include "initCommands.h"
 #include "pixel.h"
+#include "displayBuffer.hpp"
 
 #include <fmt/format.h>
 #include <span>
@@ -18,8 +19,7 @@ auto constexpr maxTransactions{6*numLineBuffers};
 
 template <gpio_num_t CSPin, gpio_num_t DCPin, gpio_num_t RSTPin, gpio_num_t BACKLPin>
 struct Display : private esp::spiDevice<maxTransactions> {
-    //TODO: Change to buffer class!
-    std::array<std::vector<Pixel>, numLineBuffers> lineBuffers;
+    DisplayBuffer<displayConfig::displayHeight, displayConfig::displayWidth, displayConfig::parallelSend> buffer;
     bool foo{false};
     bool firstFlush{true};
 public:
@@ -30,9 +30,6 @@ public:
         gpio_set_direction(DCPin, GPIO_MODE_OUTPUT);
         gpio_set_direction(RSTPin, GPIO_MODE_OUTPUT);
         gpio_set_direction(BACKLPin, GPIO_MODE_OUTPUT);
-        for(auto& b : lineBuffers){
-            b = std::vector<Pixel>{displayConfig::displayWidth * displayConfig::parallelSend};
-        }
         reset();
     }
 
@@ -89,34 +86,39 @@ public:
 
     //TODO: Function is currently blocking... do not wait for DMA!
     void flush() {
-
         if(!firstFlush){
             waitDMA(6);
         }
         firstFlush = false;
         static std::size_t cycle{};
         static std::size_t line{};
-        if(cycle > lineBuffers.size() - 1){
+        if(cycle > buffer.size() - 1){
             cycle = 0;
             line = 0;
         }
-        auto& lineBuffer = lineBuffers[cycle];
-        fmt::print("Queuing: cycle={} line={}\n", cycle, line);
+        auto& lineBuffer = buffer[cycle];
         queueLine(line, std::as_bytes(std::span{lineBuffer}));
         line += displayConfig::parallelSend;
         ++cycle;
     }
 
     void handler() {
-        auto& lineBuffer = lineBuffers[0];
         if(foo){
-            lineBuffer[0].set(0,255,0);
+            for(unsigned int h{}; h < displayConfig::displayHeight; ++h){
+                for(unsigned int w{}; w < displayConfig::displayWidth; ++w){
+                    buffer.setPixel(w,h,Pixel{0,255,0});
+                }
+            }
             foo = false;
         }
         else{
-            lineBuffer[0].set(0,0,0);
+            for(unsigned int h{}; h < displayConfig::displayHeight; ++h){
+                for(unsigned int w{}; w < displayConfig::displayWidth; ++w){
+                    buffer.setPixel(w,h,Pixel{0,0,0});
+                }
+            }
             foo = true;
         }
-        flush();
+        //flush();
     }
 };
