@@ -7,6 +7,7 @@
 #include "initCommands.h"
 #include "pixel.h"
 #include "displayBuffer.hpp"
+#include "image.hpp"
 
 #include <fmt/format.h>
 #include <span>
@@ -103,22 +104,7 @@ public:
     }
 
     void handler() {
-        if(foo){
-            for(unsigned int h{}; h < displayConfig::displayHeight; ++h){
-                for(unsigned int w{}; w < displayConfig::displayWidth; ++w){
-                    buffer.setPixel(w,h,Pixel{0,255,0});
-                }
-            }
-            foo = false;
-        }
-        else{
-            for(unsigned int h{}; h < displayConfig::displayHeight; ++h){
-                for(unsigned int w{}; w < displayConfig::displayWidth; ++w){
-                    buffer.setPixel(w,h,Pixel{0,0,0});
-                }
-            }
-            foo = true;
-        }
+        buffer.setImage(image);
         //flush();
     }
 };

@@ -23,10 +23,11 @@ extern "C" void app_main() {
 
     auto now = std::chrono::system_clock::now();
     auto everySecond = now + std::chrono::seconds(1);
+    display.handler();
     while(1) {
         now = std::chrono::system_clock::now();
         if(now > everySecond){
-            display.handler();
+
             everySecond = now + std::chrono::seconds(1);
         }
         display.flush();
