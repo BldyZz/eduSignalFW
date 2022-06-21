@@ -12,9 +12,10 @@
 #include <fmt/format.h>
 #include <span>
 #include <vector>
+#include <thread>
+#include <chrono>
 
-using displayPixelFormatType = std::uint16_t;
-
+//TODO: Display config as template parameter
 auto constexpr numLineBuffers{displayConfig::displayHeight / displayConfig::parallelSend};
 auto constexpr maxTransactions{6*numLineBuffers};
 
@@ -48,9 +49,9 @@ public:
         fmt::print("Resetting Display...\n");
         gpio_set_level(BACKLPin, 0);
         gpio_set_level(RSTPin, 0);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         gpio_set_level(RSTPin, 1);
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         sendConfig();
         gpio_set_level(BACKLPin, 1);
     }
@@ -61,7 +62,7 @@ public:
             queueData(c.data);
             waitDMA(2);
             if(c.waitDelay) {
-                vTaskDelay(100 / portTICK_PERIOD_MS);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
         gpio_set_level(BACKLPin, 1);

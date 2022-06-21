@@ -6,7 +6,6 @@
 
 #include "pixel.h"
 
-//TODO: Make useful functions for accessing the display buffer!
 template<std::size_t DisplayHeight, std::size_t DisplayWidth, std::size_t NumLinesParallel>
 struct DisplayBuffer{
     static_assert(DisplayHeight % NumLinesParallel == 0, "DisplayHeight must be multiple of NumLinesParallel!");
@@ -31,17 +30,19 @@ struct DisplayBuffer{
         lineBuffer[x + rowNum * DisplayWidth].set(pixel);
     }
 
+    //TODO: Rethink type decisions
     void setImage(std::span<std::uint16_t const> imageData){
-        std::size_t j{};
-        for(auto i{0}; i < displaySize; ++i){
-            unsigned int vectorNum{i/(blockSize)};
-            unsigned int pixelNum{i%(blockSize)};
-            auto& lineBuffer = lineBuffers[vectorNum];
-            lineBuffer[pixelNum].set(imageData[i]);
+        assert(imageData.size() == displaySize);
+        std::span<std::byte const> imageSpan{std::as_bytes(imageData)};
+        for(auto &lineBuffer : lineBuffers){
+            std::span<std::byte> bufferSpan{std::as_writable_bytes(std::span{lineBuffer})};
+            std::ranges::copy_n(imageSpan.begin(), bufferSpan.size(), bufferSpan.begin());
+            imageSpan = imageSpan.subspan(bufferSpan.size());
         }
     }
 
-    std::size_t size(){
+    //TODO: Rethink size and operator[]
+    std::size_t size() const{
         return lineBuffers.size();
     }
 
