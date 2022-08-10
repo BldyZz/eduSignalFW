@@ -15,7 +15,7 @@
 #include <cassert>
 
 namespace esp {
-    template<std::size_t MaxTransactions>
+    template<typename SPIConfig, std::size_t MaxTransactions>
 struct spiDevice {
     using CallbackType = void(*)(void);
 private:
@@ -25,7 +25,7 @@ private:
 
 public:
     explicit spiDevice(
-      spiHost const&     host,
+      spiHost<SPIConfig> const&     host,
       std::size_t const  clockSpeed,
       gpio_num_t const   chipSelect,
       std::uint8_t const spiMode)
@@ -44,6 +44,24 @@ public:
         assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
     }
 
+    void sendBlocking(std::span<std::byte const> package) {
+        spi_transaction_t t{};
+        t.length    = package.size_bytes() * 8;
+        t.tx_buffer = package.data();
+        assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
+    }
+/*
+    template<typename F>
+    void sendBlocking(std::span<std::byte const> package, F callback, std::vector<std::byte> &returnData) {
+        spi_transaction_t t{};
+        t.user = &callback;
+        t.length    = package.size_bytes() * 8;
+        t.tx_buffer = package.data();
+        assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
+        returnData.resize(t.rxlength);
+        std::memcpy(&returnData[0], &t.rx_data[0], returnData.size());
+    }
+*/
     template<typename F>
     void sendDMA(std::span<std::byte const> package, F callback) {
         spi_transaction_t& t = transactions.getFreeTransaction();
@@ -64,9 +82,10 @@ public:
 
     static void preTransferCallback(spi_transaction_t* t) {
         assert(t != nullptr);
-        assert(t->user != nullptr);
-        CallbackType cb = reinterpret_cast<CallbackType>(t->user);
-        cb();
+        if(t->user != nullptr){
+            CallbackType cb = reinterpret_cast<CallbackType>(t->user);
+            cb();
+        }
     }
 };
 
