@@ -10,6 +10,7 @@
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "fmt/format.h"
+#include "driver/gpio.h"
 
 #include <chrono>
 #include <cstddef>
@@ -22,8 +23,10 @@
 template<typename SPIConfig, gpio_num_t CSPin>
 struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
     explicit MCP3561(esp::spiHost<SPIConfig> const& bus)
-            : esp::spiDevice<SPIConfig, 20>(bus, 10 * 1000 * 1000, CSPin, 0) {
-        fmt::print("Initializing MCP3561...\n");
+            : esp::spiDevice<SPIConfig, 20>(bus, 10 * 1000 * 1000, GPIO_NUM_25, 0) {
+        fmt::print("MCP3561: Initializing...\n");
+        gpio_set_direction(GPIO_NUM_17, GPIO_MODE_OUTPUT);
+        gpio_set_level(GPIO_NUM_17, 1);
     }
 
     enum class State {
@@ -75,6 +78,8 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
     };
 
     void handler() {
+        gpio_set_level(GPIO_NUM_17, 0);
         this->sendBlocking(std::array{std::byte{0xC0}, std::byte{0xFF}, std::byte{0xEE}});
+        gpio_set_level(GPIO_NUM_17, 1);
     }
 };

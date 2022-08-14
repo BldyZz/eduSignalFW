@@ -17,7 +17,7 @@ template<typename SPIConfig, gpio_num_t CSPin, gpio_num_t RESETPin, gpio_num_t P
 struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     explicit ADS1299(esp::spiHost<SPIConfig> const& bus)
       : esp::spiDevice<SPIConfig, 20>(bus, 10 * 1000 * 1000, CSPin, 1) {
-        fmt::print("Initializing ADS1299...\n");
+        fmt::print("ADS1299: Initializing...\n");
         gpio_set_direction(RESETPin, GPIO_MODE_OUTPUT);
         gpio_set_direction(PDWNPin, GPIO_MODE_OUTPUT);
     }
