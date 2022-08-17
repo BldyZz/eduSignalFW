@@ -31,6 +31,7 @@ public:
           0));
 
         gpio_set_direction(I2CConfig::PowerPin, GPIO_MODE_OUTPUT);
+        gpio_set_level(I2CConfig::PowerPin, 1);
         gpio_set_level(I2CConfig::PowerPin, 0);
     }
 };

@@ -42,7 +42,7 @@ struct BHI160 : private esp::i2cDevice<I2CConfig, 0x14>{
 
             case State::waitForInterrupt1:
             {
-                if(!gpio_get_level(IntPin)){
+                if(gpio_get_level(IntPin)){
                     st = State::firmwareUpload;
                     fmt::print("BHI160: Uploading firmware...\n");
                 }
@@ -63,8 +63,10 @@ struct BHI160 : private esp::i2cDevice<I2CConfig, 0x14>{
                 break;
             case State::waitForInterrupt2:
             {
-                //TODO: wait for interrupt
-                st = State::configuration;
+                if(gpio_get_level(IntPin)){
+                    st = State::configuration;
+                    fmt::print("BHI160: Configuring device...\n");
+                }
             }
                 break;
 

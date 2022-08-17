@@ -21,5 +21,5 @@ There has not been further implementation of functions. Just simple communicatio
 #### I2C
 - [ ] IMU (BHI160): Firmware flash is needed
 - [X] Pulsoximeter (MAX30102)
-- [ ] IO Extender (PCF8574): Solder IC onto board, not populated yet
-- [ ] Touchscreen controller (TSC2003): Solder IC onto board, not populated yet
+- [X] IO Extender (PCF8574)
+- [ ] Touchscreen controller (TSC2003): Defective IC? Wrong Address?
