@@ -4,8 +4,9 @@
 #include "devices/MAX30102.hpp"
 #include "devices/MCP3561.hpp"
 #include "devices/PCF8574.hpp"
-#include "devices/TCS2003.hpp"
+#include "devices/TSC2003.hpp"
 #include "esp_system.h"
+#include "esp_task_wdt.h"
 #include "esp_util/i2cMaster.hpp"
 #include "esp_util/spiHost.hpp"
 #include "freertos/FreeRTOS.h"
@@ -34,11 +35,12 @@ extern "C" void app_main() {
     //Display<displayConfig::CS, displayConfig::DC, displayConfig::RST, displayConfig::BCKL>
     //  display{spi2};
 
+
     esp::i2cMaster<I2C0_Config>      boardI2C;
     //BHI160<I2C0_Config, GPIO_NUM_39> inertialMeasurementUnit;
     //MAX30102<I2C0_Config>            pulseOxiMeter;
-    PCF8574<I2C0_Config> ioExpander;
-    //TCS2003<I2C0_Config> touchScreenController;
+    //PCF8574<I2C0_Config> ioExpander;
+    TSC2003<I2C0_Config> touchScreenController;
 
 
     auto now         = std::chrono::system_clock::now();
@@ -58,7 +60,6 @@ extern "C" void app_main() {
         //inertialMeasurementUnit.handler();
         //pulseOxiMeter.handler();
         //ioExpander.handler();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     return;

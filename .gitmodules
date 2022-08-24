@@ -1,3 +1,6 @@
 [submodule "external/fmt"]
 	path = external/fmt
 	url = git@github.com:fmtlib/fmt.git
+[submodule "external/brains-witchery"]
+	path = external/brains-witchery
+	url = git@github.com:useless-branch/brains-witchery.git

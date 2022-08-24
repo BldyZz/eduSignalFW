@@ -12,14 +12,14 @@ There has not been further implementation of functions. Just simple communicatio
 
 #### VSPI
 - [X] EKG (ADS1299)
-- [ ] ADC (MCP3561): Needs new SPI CS line because Pins of ESP are not connected, waiting for IO Extender
-- [ ] SD Card: Needs new SPI CS line because Pins of ESP are not connected, waiting for IO Extender
+- [ ] ADC (MCP3561): CS line connected to bit 1 of expander, needs to be tested
+- [ ] SD Card: CS line connected to bit 2 of expander, needs to be tested
 
 #### HSPI
 - [ ] Display: Adapter needs to be done
 
 #### I2C
-- [ ] IMU (BHI160): Firmware flash is needed
+- [X] IMU (BHI160): Works, firmware is running 
 - [X] Pulsoximeter (MAX30102)
 - [X] IO Extender (PCF8574): Works, needs to be connected to CS lines
-- [ ] Touchscreen controller (TSC2003): Defective IC? Wrong Address?
+- [X] Touchscreen controller (TSC2003): SDA and SCL were swapped... fixed with handwire!

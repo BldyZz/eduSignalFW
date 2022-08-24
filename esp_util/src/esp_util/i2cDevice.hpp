@@ -13,13 +13,14 @@ namespace esp {
 template<typename I2CConfig, std::uint8_t deviceAddress>
 struct i2cDevice {
     void read(
-      std::uint8_t const         registerAddress,
+      std::byte const         registerAddress,
       std::size_t const          length,
       std::uint8_t* data) {
+        std::uint8_t tempRegisterAddress{std::to_integer<uint8_t>(registerAddress)};
         ESP_ERROR_CHECK(i2c_master_write_read_device(
           I2CConfig::Number,
           deviceAddress,
-          &registerAddress,
+          &tempRegisterAddress,
           1,
           data,
           length,
