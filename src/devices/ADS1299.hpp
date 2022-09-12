@@ -267,7 +267,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 if(gpio_get_level(NDRDYPin) == 0) {
                     //TODO: Capture Data and Test Signals
                     captureData();
-                    st = State::idle;
+                    st = State::setCustomSettings;
                 }
             }
             break;
@@ -289,8 +289,22 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                   Command::BytesToWrite(2),
                   std::byte{0xFF},
                   std::byte{0xFF}});
-                //--
-                //TODO: Setup default MUX configuration for ECG
+                //-- Setting up MUX Configuration
+                this->sendBlocking(std::array{Command::SDATAC});
+                //Configure Config2 Register to default value!
+                this->sendBlocking(std::array{
+                        Command::WREG(Register::CONFIG2),
+                        Command::BytesToWrite(1),
+                        std::byte{0xC0}});
+                //Set all ChannelMux to Gain 1, SRB2 open,
+                //Normal electrode input in normal operation mode!
+                this->sendBlocking(std::array{
+                        Command::WREG(Register::CH1SET),
+                        Command::BytesToWrite(4),
+                        std::byte{0x00},
+                        std::byte{0x00},
+                        std::byte{0x00},
+                        std::byte{0x00}});
                 this->sendBlocking(std::array{Command::START});
                 this->sendBlocking(std::array{Command::RDATAC});
                 fmt::print("ADS1299: Config complete!\n");
@@ -301,8 +315,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         case State::idle:
             {
                 if(gpio_get_level(NDRDYPin) == 0) {
-                    //TODO: Change back to normal Data acquisition
-                    st = State::captureTestData;
+                    st = State::captureData;
                 }
             }
             break;
