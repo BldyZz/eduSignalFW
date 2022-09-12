@@ -21,45 +21,47 @@
 #include <chrono>
 #include <cstdint>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <thread>
 
 extern "C" void app_main() {
-    //esp::spiHost<BoardSPIConfig> boardSPI;
-    //ADS1299<BoardSPIConfig, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0> ads1299{boardSPI};
-
-    //TODO: Move CS Pin to GPIO Expander and implement
-    //MCP3561<BoardSPIConfig, GPIO_NUM_25> mcp3561{boardSPI};
-
-    //TODO: Move CS Pin of SD-Card to GPIO Expander
     //esp::spiHost<DisplaySPIConfig> displaySPI;
     //Display<displayConfig::CS, displayConfig::DC, displayConfig::RST, displayConfig::BCKL>
     //  display{spi2};
-
 
     esp::i2cMaster<I2C0_Config>      boardI2C;
     //BHI160<I2C0_Config, GPIO_NUM_39> inertialMeasurementUnit;
     //MAX30102<I2C0_Config>            pulseOxiMeter;
     //PCF8574<I2C0_Config> ioExpander;
-    TSC2003<I2C0_Config> touchScreenController;
+    //TSC2003<I2C0_Config> touchScreenController;
 
-
-    auto now         = std::chrono::system_clock::now();
-    auto everySecond = now + std::chrono::seconds(1);
-    //display.handler();
-    int level{0};
+    esp::spiHost<BoardSPIConfig> boardSPI;
+    ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
+    MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34> adc{boardSPI};
 
     while(1) {
-        now = std::chrono::system_clock::now();
-        if(now > everySecond) {
-            everySecond = now + std::chrono::seconds(1);
-        }
-        //display.flush();
-        //ads1299.handler();
+        auto now = std::chrono::system_clock::now();
 
-        //mcp3561.handler();
+        if(ecg.noiseData.has_value()){
+            //fmt::print("Noise Data: {:#032b}\n",ecg.noiseData.value()[0]);
+            fmt::print("Noise Data: {}\n",ecg.noiseData.value()[0]);
+            ecg.noiseData = {};
+        }
+
+        if(ecg.ecgData.has_value()){
+            //fmt::print("{} {:#032b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
+            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(ecg.ecgData.value(), ", "));
+            ecg.ecgData = {};
+        }
+
+        //display.flush();
+        ecg.handler();
+        //adc.handler();
+
+        //ioExpander.handler();<
         //inertialMeasurementUnit.handler();
         //pulseOxiMeter.handler();
-        //ioExpander.handler();
+        //display.handler();
     }
 
     return;

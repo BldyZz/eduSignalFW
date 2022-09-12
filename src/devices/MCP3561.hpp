@@ -7,61 +7,53 @@
 //
 
 #pragma once
+#include "driver/gpio.h"
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "fmt/format.h"
-#include "driver/gpio.h"
 
 #include <chrono>
 #include <cstddef>
+#include <functional>
 #include <span>
-#include <vector>
 #include <thread>
+#include <vector>
 
-
-
-template<typename SPIConfig, gpio_num_t CSPin>
+template<typename SPIConfig, std::size_t channelCount, gpio_num_t CSPin, gpio_num_t IRQPin>
 struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
+    std::function<void(bool)> setChipSelect;
+
     explicit MCP3561(esp::spiHost<SPIConfig> const& bus)
-            : esp::spiDevice<SPIConfig, 20>(bus, 10 * 1000 * 1000, GPIO_NUM_25, 0) {
+      : esp::spiDevice<SPIConfig, 20>(bus, 10 * 1000 * 1000, CSPin, 0) {
         fmt::print("MCP3561: Initializing...\n");
-        gpio_set_direction(GPIO_NUM_17, GPIO_MODE_OUTPUT);
-        gpio_set_level(GPIO_NUM_17, 1);
+        gpio_set_direction(IRQPin, GPIO_MODE_INPUT);
     }
 
-    enum class State {
-        reset,
-        powerUp,
-        waitForPower,
-        setExternalReference,
-        startConversion,
-        captureNoiseData,
-        setTestSignals,
-        captureTestData,
-        idle
-    };
+    enum class State { reset, init, config, idle, captureData };
     State st{State::reset};
     using tp = std::chrono::time_point<std::chrono::system_clock>;
+    tp resetTime;
 
+    static constexpr std::byte DeviceAddress{0b01};
 
     struct Command {
-        static constexpr std::byte StartConversion{0x68};
-        static constexpr std::byte Standby{0x6C};
-        static constexpr std::byte Shutdown{0x70};
-        static constexpr std::byte FullShutdown{0x74};
-        static constexpr std::byte FullReset{0x78};
-        static constexpr std::byte StaticRead(std::byte Address){
-            return std::byte{0x41} ^ (Address << 2);
+        static constexpr std::byte StartConversion{DeviceAddress << 6 | std::byte{0b1010'00}};
+        static constexpr std::byte Standby{DeviceAddress << 6 | std::byte{0b1011'00}};
+        static constexpr std::byte Shutdown{DeviceAddress << 6 | std::byte{0b1100'00}};
+        static constexpr std::byte FullShutdown{DeviceAddress << 6 | std::byte{0b1101'00}};
+        static constexpr std::byte FullReset{DeviceAddress << 6 | std::byte{0b1110'00}};
+        static constexpr std::byte StaticRead(std::byte Address) {
+            return std::byte{DeviceAddress << 6 | (Address << 2) | std::byte{0b01}};
         };
-        static constexpr std::byte IncrementalWrite(std::byte Address){
-            return std::byte{0x42} ^ (Address << 2);
+        static constexpr std::byte IncrementalWrite(std::byte Address) {
+            return std::byte{DeviceAddress << 6 | (Address << 2) | std::byte{0b10}};
         };
-        static constexpr std::byte IncrementalRead(std::byte Address){
-            return std::byte{0x43} ^ (Address << 2);
+        static constexpr std::byte IncrementalRead(std::byte Address) {
+            return std::byte{DeviceAddress << 6 | (Address << 2) | std::byte{0b11}};
         };
     };
 
-    struct Register{
+    struct Register {
         static constexpr std::byte ADCDATA{0x0};
         static constexpr std::byte CONFIG0{0x1};
         static constexpr std::byte CONFIG1{0x2};
@@ -78,8 +70,93 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
     };
 
     void handler() {
-        gpio_set_level(GPIO_NUM_17, 0);
-        this->sendBlocking(std::array{std::byte{0xC0}, std::byte{0xFF}, std::byte{0xEE}});
-        gpio_set_level(GPIO_NUM_17, 1);
+        switch(st) {
+        case State::reset:
+            {
+                this->sendBlocking(std::array{Command::FullReset});
+                resetTime = std::chrono::system_clock::now() + std::chrono::microseconds(200);
+                fmt::print("MCP3561: Resetting...\n");
+                st = State::init;
+            }
+            break;
+        case State::init:
+            {
+                auto now{std::chrono::system_clock::now()};
+                if(now > resetTime) {
+                    std::array<std::byte, 2> rxData{};
+                    this->sendBlocking(
+                      std::array{Command::StaticRead(Register::CONFIG0), std::byte{0x00}},
+                      rxData);
+                    if(rxData[1] == std::byte{0xC0}) {
+                        fmt::print("MCP3561: Power up complete!\n");
+                        st = State::config;
+                    } else {
+                        fmt::print("MCP3561: Power up failed! Chip not responding! Retrying...\n");
+                        st = State::reset;
+                    }
+                }
+            }
+            break;
+        case State::config:
+            {
+                this->sendBlocking(std::array{
+                  Command::IncrementalWrite(Register::CONFIG0),
+                  //CONFIG0
+                  std::byte{0xE3},
+                  //CONFIG1
+                  std::byte{0x3C},
+                  //CONFIG2
+                  std::byte{0xCF},
+                  //CONFIG3
+                  std::byte{0x82},
+                  //IRQ
+                  std::byte{0x77},
+                  //MUX
+                  std::byte{0x01},
+                  //SCAN
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  //TIMER
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  //OFFSETCAL
+                  std::byte{0x00},
+                  std::byte{0x51},
+                  std::byte{0x6A},
+                  //GAINCAL
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  std::byte{0x00}});
+                fmt::print("MCP3561: Configuration complete!\n");
+                st = State::idle;
+            }
+            break;
+
+        case State::idle:
+            {
+                if(gpio_get_level(IRQPin) == 0) {
+                    fmt::print("MCP3561: Got Data Ready!\n");
+                    st = State::captureData;
+                }
+            }
+            break;
+
+        case State::captureData:
+            {
+                static constexpr auto readSize{1+3};
+                std::array<std::byte, readSize> rxData{};
+                std::array<std::byte, readSize> txData{std::byte{0x00}};
+                txData[0] = Command::IncrementalRead(Register::ADCDATA);
+                this->sendBlocking(txData, rxData);
+                std::uint32_t transformedData{};
+                std::memcpy(&transformedData, &rxData[1], 3);
+                transformedData = transformedData >> 8;
+                fmt::print("MCP3561: Data: [{}]\n", transformedData);
+                st = State::idle;
+            }
+            break;
+        }
     }
 };

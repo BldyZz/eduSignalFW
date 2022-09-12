@@ -50,18 +50,28 @@ public:
         t.tx_buffer = package.data();
         assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
     }
-/*
-    template<typename F>
-    void sendBlocking(std::span<std::byte const> package, F callback, std::vector<std::byte> &returnData) {
+
+    template<typename F, std::size_t arraySize>
+    void sendBlocking(std::span<std::byte const> package, F callback, std::array<std::byte, arraySize> &returnData) {
         spi_transaction_t t{};
         t.user = &callback;
         t.length    = package.size_bytes() * 8;
+        t.rx_buffer = returnData.data();
         t.tx_buffer = package.data();
         assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
-        returnData.resize(t.rxlength);
-        std::memcpy(&returnData[0], &t.rx_data[0], returnData.size());
+        assert(package.size_bytes() == returnData.size());
     }
-*/
+
+    template<std::size_t arraySize>
+    void sendBlocking(std::span<std::byte const> package, std::array<std::byte, arraySize> &returnData) {
+        spi_transaction_t t{};
+        t.length    = package.size_bytes() * 8;
+        t.tx_buffer = package.data();
+        t.rx_buffer = returnData.data();
+        assert(spi_device_polling_transmit(spiDeviceHandle, &t) == ESP_OK);
+        assert(package.size_bytes() == returnData.size());
+    }
+
     template<typename F>
     void sendDMA(std::span<std::byte const> package, F callback) {
         spi_transaction_t& t = transactions.getFreeTransaction();

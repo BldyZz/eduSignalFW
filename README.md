@@ -12,8 +12,8 @@ There has not been further implementation of functions. Just simple communicatio
 
 #### VSPI
 - [X] EKG (ADS1299)
-- [ ] ADC (MCP3561): CS line connected to bit 1 of expander, needs to be tested
-- [ ] SD Card: CS line connected to bit 2 of expander, needs to be tested
+- [X] ADC (MCP3561): Working. Display backlight and Display reset must be connected to IO Expander
+- [ ] SD Card: CS line connected to ESP, Power supply for SD card needs to be checked
 
 #### HSPI
 - [ ] Display: Adapter needs to be done
@@ -21,5 +21,5 @@ There has not been further implementation of functions. Just simple communicatio
 #### I2C
 - [X] IMU (BHI160): Works, firmware is running 
 - [X] Pulsoximeter (MAX30102)
-- [X] IO Extender (PCF8574): Works, needs to be connected to CS lines
+- [X] IO Extender (PCF8574): Works, output lines need pull-up
 - [X] Touchscreen controller (TSC2003): SDA and SCL were swapped... fixed with handwire!

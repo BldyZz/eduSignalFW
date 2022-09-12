@@ -10,27 +10,30 @@
 
 template <typename I2CConfig>
 struct PCF8574 : private esp::i2cDevice<I2CConfig, 0x20>{
+    struct outputByte{
+        std::uint8_t bit0 : 1, bit1 : 1, bit2 : 1, bit3 : 1, bit4 : 1, bit5 : 1, bit6 : 1, bit7 : 1;
+        std::byte value() const {
+            return std::byte(bit7 << 7 | bit6 << 6 | bit5 << 5 | bit4 << 4 | bit3 << 3 | bit2 << 2 | bit1 << 1 | bit0);
+        }
+        auto operator<=>(const outputByte&) const = default;
+    };
+    outputByte currentOutput;
+private:
+    outputByte oldOutput{currentOutput};
+public:
 
     explicit PCF8574(){
         fmt::print("PCF8574: Initializing...\n");
-        this->write(std::array{std::byte{0xAA}});
+        //this->write(std::array{std::byte{0xAA}});
     }
 
-    enum class State {
-        reset,
-        idle
-    };
-    State st{State::reset};
-    using tp = std::chrono::time_point<std::chrono::system_clock>;
-
-    struct Command {
-
-    };
-
     void handler() {
-        switch(st) {
-
-
+        if(currentOutput != oldOutput){
+            this->write(std::array{currentOutput.value()});
+            oldOutput = currentOutput;
+        }
+        else{
+            return;
         }
     }
 };
