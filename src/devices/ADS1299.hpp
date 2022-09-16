@@ -183,8 +183,14 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 auto now = std::chrono::system_clock::now();
                 if(now > timerWaitForReset) {
                     this->sendBlocking(std::array{Command::SDATAC});
-                    //(rxData[2] & std::byte{0b00011111}) == std::byte{0b00011100}
-                    if(true) {
+                    std::array<std::byte, 3> rxData{};
+                    this->sendBlocking(
+                      std::array{
+                        Command::RREG(Register::ID),
+                        Command::BytesToWrite(1),
+                        std::byte{0x00}},
+                      rxData);
+                    if((rxData[2] & std::byte{0b00011111}) == std::byte{0b00011100}) {
                         this->sendBlocking(std::array{
                           Command::WREG(Register::CONFIG3),
                           Command::BytesToWrite(1),
@@ -192,6 +198,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                         //Wait for internal Reference to settle
                         timerSettleRef
                           = std::chrono::system_clock::now() + std::chrono::microseconds(300);
+                        fmt::print("ADS1299: Communication established!\n");
                         st = State::setNoiseData;
                     } else {
                         fmt::print("ADS1299: Could not set up device! Restarting...\n");
@@ -293,18 +300,18 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{Command::SDATAC});
                 //Configure Config2 Register to default value!
                 this->sendBlocking(std::array{
-                        Command::WREG(Register::CONFIG2),
-                        Command::BytesToWrite(1),
-                        std::byte{0xC0}});
+                  Command::WREG(Register::CONFIG2),
+                  Command::BytesToWrite(1),
+                  std::byte{0xC0}});
                 //Set all ChannelMux to Gain 1, SRB2 open,
                 //Normal electrode input in normal operation mode!
                 this->sendBlocking(std::array{
-                        Command::WREG(Register::CH1SET),
-                        Command::BytesToWrite(4),
-                        std::byte{0x00},
-                        std::byte{0x00},
-                        std::byte{0x00},
-                        std::byte{0x00}});
+                  Command::WREG(Register::CH1SET),
+                  Command::BytesToWrite(4),
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  std::byte{0x00},
+                  std::byte{0x00}});
                 this->sendBlocking(std::array{Command::START});
                 this->sendBlocking(std::array{Command::RDATAC});
                 fmt::print("ADS1299: Config complete!\n");

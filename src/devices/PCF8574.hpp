@@ -6,6 +6,7 @@
 #include <chrono>
 #include <array>
 #include <cstdint>
+#include <optional>
 #include "fmt/format.h"
 
 template <typename I2CConfig>
@@ -18,16 +19,22 @@ struct PCF8574 : private esp::i2cDevice<I2CConfig, 0x20>{
         auto operator<=>(const outputByte&) const = default;
     };
     outputByte currentOutput;
+    std::optional<outputByte> currentInput{};
 private:
     outputByte oldOutput{currentOutput};
 public:
 
+
     explicit PCF8574(){
         fmt::print("PCF8574: Initializing...\n");
-        //this->write(std::array{std::byte{0xAA}});
+        fmt::print("PCF8574: Done!\n");
     }
 
     void handler() {
+        std::array<uint8_t, 1> rxData;
+        this->read(std::byte{0x00}, rxData.size(), rxData.data());
+        outputByte tempByte{};
+        std::memcpy(&tempByte, &rxData[0], rxData.size());
         if(currentOutput != oldOutput){
             this->write(std::array{currentOutput.value()});
             oldOutput = currentOutput;
