@@ -49,7 +49,7 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
         init,
         idle,
         readData,
-        getFIFOReadPointer
+        changeConfig
     };
     State st{State::reset};
     std::uint8_t writePointer{0x00};
@@ -64,9 +64,21 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
 
             case State::init: {
                 fmt::print("MAX30102: Initialization...\n");
-                this->write(std::array{Register::ModeConfig, std::byte{0b0000'0011}});
-                this->write(std::array{Register::LED1PulseAmplitude, std::byte{0x1F}});
-                this->write(std::array{Register::LED2PulseAmplitude, std::byte{0x1F}});
+                static constexpr std::byte modeControl{0b011};
+                this->write(std::array{Register::ModeConfig, std::byte{modeControl}});
+                static constexpr std::byte sampleRate{0b001};
+                static constexpr std::byte pulseWidth{0b11};
+                static constexpr std::byte adcRange{0b11};
+                static constexpr std::byte spo2ConfigData{adcRange << 5 | sampleRate << 2 | pulseWidth};
+                this->write(std::array{Register::SPO2Config, spo2ConfigData});
+                static constexpr std::byte sampleAverage{0b001};
+                static constexpr std::byte fifoRolloverEnable{0b0};
+                static constexpr std::byte fifoAFull{0b0000};
+                static constexpr std::byte fifoConfigData{sampleAverage << 5 | fifoRolloverEnable << 4 | fifoAFull};
+                this->write(std::array{Register::FiFoConfig, fifoConfigData});
+                static constexpr std::byte ledBrightness{128};
+                this->write(std::array{Register::LED1PulseAmplitude, ledBrightness});
+                this->write(std::array{Register::LED2PulseAmplitude, ledBrightness});
                 st = State::idle;
             }
                 break;
@@ -92,9 +104,15 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
                 RDValue = temp;
                 std::memcpy(&temp, &rxData[3], 3);
                 IRDValue = temp;
-                st = State::idle;
+                st = State::changeConfig;
             }
                 break;
+
+            case State::changeConfig:{
+                //TODO: Update configuration of the sensor while measuring...
+                st = State::init;
+            }
+            break;
         }
     }
 };
