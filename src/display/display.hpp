@@ -1,11 +1,11 @@
 #pragma once
 
-#include "displayConfig.h"
+#include "displayConfig.hpp"
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "freertos/task.h"
-#include "initCommands.h"
-#include "pixel.h"
+#include "initCommands.hpp"
+#include "pixel.hpp"
 #include "displayBuffer.hpp"
 #include "image.hpp"
 

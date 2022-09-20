@@ -14,8 +14,8 @@
 //#include "display/display.hpp"
 
 #include "esp_util/i2cDevice.hpp"
-#include "i2cConfig.h"
-#include "spiConfig.h"
+#include "i2cConfig.hpp"
+#include "spiConfig.hpp"
 
 #include <array>
 #include <chrono>
@@ -33,7 +33,7 @@ extern "C" void app_main() {
     BHI160<I2C0_Config, GPIO_NUM_39> imu;
     MAX30102<I2C0_Config>            pulseOxiMeter;
     PCF8574<I2C0_Config>             ioExpander;
-    //TSC2003<I2C0_Config> touchScreenController;
+    TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
 
     esp::spiHost<BoardSPIConfig>                                                boardSPI;
     ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
@@ -62,7 +62,7 @@ extern "C" void app_main() {
         }
 
 
-        //display.flush();
+
         if(imu.accData.X.has_value() && imu.accData.Y.has_value() && imu.accData.Z.has_value()){
             fmt::print("IMU: {:05}, {:05}, {:05}\n", imu.accData.X.value(),imu.accData.Y.value(),imu.accData.Z.value());
             imu.accData.X = {};
@@ -71,12 +71,14 @@ extern "C" void app_main() {
         }
 */
         ecg.handler();
-        //adc.handler();
+        adc.handler();
 
         ioExpander.handler();
         imu.handler();
         pulseOxiMeter.handler();
+        touchScreenController.handler();
         //display.handler();
+        //display.flush();
     }
 
     return;

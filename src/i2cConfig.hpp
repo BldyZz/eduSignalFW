@@ -10,7 +10,7 @@ struct I2C0_Config{
     static constexpr auto SDAPin{GPIO_NUM_21};
     static constexpr auto PowerPin{GPIO_NUM_27};
     static constexpr auto Number{0};
-    static constexpr auto Frequency{400'000};
+    static constexpr auto Frequency{100'000};
     static constexpr auto TXBufferSize{0};
     static constexpr auto RXBufferSize{0};
     static constexpr auto TimeoutMS{1000};

@@ -4,7 +4,7 @@
 #include <bit>
 #include <span>
 
-#include "pixel.h"
+#include "pixel.hpp"
 
 template<std::size_t DisplayHeight, std::size_t DisplayWidth, std::size_t NumLinesParallel>
 struct DisplayBuffer{

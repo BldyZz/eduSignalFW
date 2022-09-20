@@ -2,7 +2,7 @@
 // Created by patrick on 5/29/22.
 //
 #pragma once
-#include "display/displayConfig.h"
+#include "display/displayConfig.hpp"
 #include "driver/gpio.h"
 #include "driver/spi_common.h"
 
