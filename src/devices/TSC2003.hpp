@@ -70,12 +70,12 @@ struct TSC2003 : private esp::i2cDevice<I2CConfig, 0x48> {
 
             case State::getResult:
             {
+                //TODO: Store data in optional
                 std::array<std::uint8_t, 2> rxData{0};
                 this->readOnly(rxData.size(), rxData.data());
                 std::uint16_t tempData{};
                 std::ranges::reverse(rxData);
                 std::memcpy(&tempData, &rxData[0], 2);
-                fmt::print("TSC2003: Data: {}\n", tempData);
                 st = State::setConversion;
             }
                 break;
