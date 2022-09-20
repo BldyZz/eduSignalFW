@@ -23,6 +23,16 @@ struct PCF8574 : private esp::i2cDevice<I2CConfig, 0x20>{
 private:
     outputByte oldOutput{currentOutput};
 public:
+    enum class State{
+        reset,
+        idle,
+        transferData
+    };
+
+    State st{State::reset};
+    using tp = std::chrono::time_point<std::chrono::system_clock>;
+    tp refreshTimePoint;
+    static constexpr auto refreshTime{std::chrono::milliseconds(200)};
 
 
     explicit PCF8574(){
@@ -31,16 +41,36 @@ public:
     }
 
     void handler() {
-        std::array<uint8_t, 1> rxData;
-        this->read(std::byte{0x00}, rxData.size(), rxData.data());
-        outputByte tempByte{};
-        std::memcpy(&tempByte, &rxData[0], rxData.size());
-        if(currentOutput != oldOutput){
-            this->write(std::array{currentOutput.value()});
-            oldOutput = currentOutput;
-        }
-        else{
-            return;
+        switch(st){
+            case State::reset:
+            {
+                refreshTimePoint = std::chrono::system_clock::now() + refreshTime;
+                st = State::idle;
+            }
+            break;
+            case State::idle:
+            {
+                auto now = std::chrono::system_clock::now();
+                if(now > refreshTimePoint){
+                    st = State::transferData;
+                }
+            }
+                break;
+            case State::transferData:
+            {
+                std::array<uint8_t, 1> rxData;
+                this->read(std::byte{0x00}, rxData.size(), rxData.data());
+                outputByte tempByte{};
+                std::memcpy(&tempByte, &rxData[0], rxData.size());
+                currentInput = tempByte;
+                if(currentOutput != oldOutput){
+                    this->write(std::array{currentOutput.value()});
+                    oldOutput = currentOutput;
+                }
+                refreshTimePoint = std::chrono::system_clock::now() + refreshTime;
+                st = State::idle;
+            }
+                break;
         }
     }
 };
