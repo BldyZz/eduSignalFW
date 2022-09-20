@@ -40,7 +40,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         captureTestData,
         setCustomSettings,
         idle,
-        captureData
+        captureData,
+        shutdown
     };
 
     State st{State::reset};
@@ -54,6 +55,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     std::optional<std::array<std::uint32_t, channelCount>> noiseData;
     std::optional<std::array<std::uint32_t, channelCount>> ecgData;
     std::optional<std::uint32_t>                           statusBits;
+    std::size_t                                            resetCounter{0};
 
     struct Register {
         static constexpr std::byte ID{0x00};
@@ -199,11 +201,20 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                         timerSettleRef
                           = std::chrono::system_clock::now() + std::chrono::microseconds(300);
                         fmt::print("ADS1299: Communication established!\n");
-                        st = State::setNoiseData;
+                        resetCounter = 0;
+                        st           = State::setNoiseData;
                     } else {
                         fmt::print("ADS1299: Could not set up device! Restarting...\n");
+                        ++resetCounter;
                         st = State::reset;
                     }
+                }
+                if(resetCounter > 10) {
+                    fmt::print("ADS1299: Too many errors... Shutting down!\n");
+                    fmt::print(
+                      "ADS1299: Check all voltages on Chip! Maybe analog or digital supply "
+                      "missing!\n");
+                    st = State::shutdown;
                 }
             }
             break;
@@ -331,6 +342,11 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
             {
                 captureData();
                 st = State::idle;
+            }
+            break;
+
+        case State::shutdown:
+            {
             }
             break;
         }

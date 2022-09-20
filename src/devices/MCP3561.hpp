@@ -11,6 +11,7 @@
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "fmt/format.h"
+#include "fmt/chrono.h"
 
 #include <chrono>
 #include <cstddef>
@@ -29,10 +30,11 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
         gpio_set_direction(IRQPin, GPIO_MODE_INPUT);
     }
 
-    enum class State { reset, init, config, idle, captureData };
+    enum class State { reset, init, config, idle, captureData, shutdown};
     State st{State::reset};
     using tp = std::chrono::time_point<std::chrono::system_clock>;
     tp resetTime;
+    std::size_t errorCounter{0};
 
     static constexpr std::byte DeviceAddress{0b01};
 
@@ -89,11 +91,18 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                       rxData);
                     if(rxData[1] == std::byte{0xC0}) {
                         fmt::print("MCP3561: Power up complete!\n");
+                        errorCounter = 0;
                         st = State::config;
                     } else {
                         fmt::print("MCP3561: Power up failed! Chip not responding! Retrying...\n");
+                        ++errorCounter;
                         st = State::reset;
                     }
+                }
+                if(errorCounter > 10){
+                    fmt::print("MCP3561: Too many errors... Shutting down!\n");
+                    fmt::print("MCP3561: Check all voltages on Chip! Maybe analog or digital supply missing!\n");
+                    st = State::shutdown;
                 }
             }
             break;
@@ -108,15 +117,15 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                   //CONFIG2
                   std::byte{0xCF},
                   //CONFIG3
-                  std::byte{0x82},
+                  std::byte{0xD2},
                   //IRQ
                   std::byte{0x77},
                   //MUX
-                  std::byte{0x01},
+                  std::byte{0x08},
                   //SCAN
                   std::byte{0x00},
                   std::byte{0x00},
-                  std::byte{0x00},
+                  std::byte{0x01},
                   //TIMER
                   std::byte{0x00},
                   std::byte{0x00},
@@ -137,7 +146,6 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
         case State::idle:
             {
                 if(gpio_get_level(IRQPin) == 0) {
-                    fmt::print("MCP3561: Got Data Ready!\n");
                     st = State::captureData;
                 }
             }
@@ -146,17 +154,23 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
         case State::captureData:
             {
                 static constexpr auto readSize{1+3};
-                std::array<std::byte, readSize> rxData{};
+                std::array<std::byte, readSize> rxData{std::byte{0x00}};
                 std::array<std::byte, readSize> txData{std::byte{0x00}};
                 txData[0] = Command::IncrementalRead(Register::ADCDATA);
                 this->sendBlocking(txData, rxData);
                 std::uint32_t transformedData{};
+                std::ranges::reverse(rxData);
                 std::memcpy(&transformedData, &rxData[1], 3);
-                transformedData = transformedData >> 8;
-                fmt::print("MCP3561: Data: [{}]\n", transformedData);
                 st = State::idle;
+
             }
             break;
+
+            case State::shutdown:
+            {
+
+            }
+                break;
         }
     }
 };
