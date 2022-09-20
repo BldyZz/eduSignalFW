@@ -26,6 +26,18 @@ struct i2cDevice {
           length,
           I2CConfig::TimeoutMS / portTICK_PERIOD_MS));
     }
+
+    void readOnly(
+            std::size_t const          length,
+            std::uint8_t* data) {
+        ESP_ERROR_CHECK(i2c_master_read_from_device(
+                I2CConfig::Number,
+                deviceAddress,
+                data,
+                length,
+                I2CConfig::TimeoutMS / portTICK_PERIOD_MS));
+    }
+
     void write(std::span<std::byte const> dataToWrite) {
         ESP_ERROR_CHECK(i2c_master_write_to_device(
           I2CConfig::Number,
