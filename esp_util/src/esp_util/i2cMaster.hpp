@@ -21,7 +21,7 @@ public:
           .scl_pullup_en = I2CConfig::SCLPullup,
           .master{.clk_speed = I2CConfig::Frequency},
         };
-        int i2c_master_port = I2CConfig::Number;
+        auto i2c_master_port = I2CConfig::Number;
         i2c_param_config(i2c_master_port, &busConfig);
         ESP_ERROR_CHECK(i2c_driver_install(
           i2c_master_port,
