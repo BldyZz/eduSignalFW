@@ -11,7 +11,8 @@
 #include "esp_util/spiHost.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-//#include "display/display.hpp"
+#include "display/display.hpp"
+#include "display/displayConfig.hpp"
 
 #include "esp_util/i2cDevice.hpp"
 #include "i2cConfig.hpp"
@@ -25,19 +26,19 @@
 #include <thread>
 
 extern "C" void app_main() {
-    //esp::spiHost<DisplaySPIConfig> displaySPI;
-    //Display<displayConfig::CS, displayConfig::DC, displayConfig::RST, displayConfig::BCKL>
-    //  display{spi2};
 
     esp::i2cMaster<I2C0_Config>      boardI2C;
-    BHI160<I2C0_Config, GPIO_NUM_39> imu;
-    MAX30102<I2C0_Config>            pulseOxiMeter;
+    //BHI160<I2C0_Config, GPIO_NUM_39> imu;
+    //MAX30102<I2C0_Config>            pulseOxiMeter;
     PCF8574<I2C0_Config>             ioExpander;
-    TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
+    //TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
 
-    esp::spiHost<BoardSPIConfig>                                                boardSPI;
-    ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
-    MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
+    esp::spiHost<displayConfig::SPIConfig> displaySPI;
+    Display<displayConfig, I2C0_Config> display{displaySPI, ioExpander};
+
+    //esp::spiHost<BoardSPIConfig>                                                boardSPI;
+    //ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
+    //MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
 
     while(1) {
         auto now = std::chrono::system_clock::now();
@@ -70,15 +71,16 @@ extern "C" void app_main() {
             imu.accData.Z = {};
         }
 */
-        ecg.handler();
-        adc.handler();
+        //ecg.handler();
+        //adc.handler();
 
         ioExpander.handler();
-        imu.handler();
-        pulseOxiMeter.handler();
-        touchScreenController.handler();
-        //display.handler();
-        //display.flush();
+        //imu.handler();
+        //pulseOxiMeter.handler();
+        //touchScreenController.handler();
+        display.handler();
+        display.buffer.setPixel(10,12,Pixel{255,0,0});
+        display.flush();
     }
 
     return;

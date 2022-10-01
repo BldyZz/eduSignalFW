@@ -1,71 +1,71 @@
 #pragma once
 
-#include "displayConfig.hpp"
+
 #include "esp_util/spiDevice.hpp"
 #include "esp_util/spiHost.hpp"
 #include "freertos/task.h"
 #include "initCommands.hpp"
 #include "pixel.hpp"
 #include "displayBuffer.hpp"
-#include "image.hpp"
 
 #include <fmt/format.h>
 #include <span>
 #include <vector>
 #include <thread>
 #include <chrono>
+#include "../devices/PCF8574.hpp"
 
-//TODO: Display config as template parameter
-auto constexpr numLineBuffers{displayConfig::displayHeight / displayConfig::parallelSend};
-auto constexpr maxTransactions{6*numLineBuffers};
-
-template <gpio_num_t CSPin, gpio_num_t DCPin, gpio_num_t RSTPin, gpio_num_t BACKLPin>
-struct Display : private esp::spiDevice<maxTransactions> {
-    DisplayBuffer<displayConfig::displayHeight, displayConfig::displayWidth, displayConfig::parallelSend> buffer;
+template <typename Config, typename I2C_Config>
+struct Display : private esp::spiDevice<typename Config::SPIConfig, Config::maxTransactions> {
+    DisplayBuffer<Config::displayHeight, Config::displayWidth, Config::parallelSend> buffer;
     bool foo{false};
     bool firstFlush{true};
+    PCF8574<I2C_Config>& ioExpander;
 public:
     explicit Display(
-      esp::spiHost const& bus)
-      : esp::spiDevice<maxTransactions>(bus, 10 * 1000 * 1000, CSPin, 0){
+      esp::spiHost<typename Config::SPIConfig> const& bus,
+      PCF8574<I2C_Config>& io_expander)
+      : esp::spiDevice<typename Config::SPIConfig, Config::maxTransactions>(bus, 10 * 1000 * 1000, Config::CSPin, 0), ioExpander(io_expander){
         fmt::print("Initializing Display...\n");
-        gpio_set_direction(DCPin, GPIO_MODE_OUTPUT);
-        gpio_set_direction(RSTPin, GPIO_MODE_OUTPUT);
-        gpio_set_direction(BACKLPin, GPIO_MODE_OUTPUT);
+        gpio_set_direction(Config::DCPin, GPIO_MODE_OUTPUT);
         reset();
     }
 
     void queueData(std::span<std::byte const> package) {
-        sendDMA(package, [](){
-            gpio_set_level(DCPin, 1);});
+        this->sendDMA(package, [](){
+            gpio_set_level(Config::DCPin, 1);});
     }
 
     void queueCommand(std::byte const& data) {
-        sendDMA(std::span{&data, 1}, [](){
-            gpio_set_level(DCPin, 0);});
+        this->sendDMA(std::span{&data, 1}, [](){
+            gpio_set_level(Config::DCPin, 0);});
     }
 
     void reset() {
         fmt::print("Resetting Display...\n");
-        gpio_set_level(BACKLPin, 0);
-        gpio_set_level(RSTPin, 0);
+        ioExpander.currentOutput.bit2 = 0; //Backlight
+        ioExpander.currentOutput.bit1 = 0; //Reset
+        ioExpander.handler();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        gpio_set_level(RSTPin, 1);
+        ioExpander.currentOutput.bit1 = 1; //Reset
+        ioExpander.handler();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         sendConfig();
-        gpio_set_level(BACKLPin, 1);
+        ioExpander.currentOutput.bit2 = 1; //Backlight
+        ioExpander.handler();
     }
 
     void sendConfig() {
         for(auto c : lcdInitCommmands) {
             queueCommand(c.cmd);
             queueData(c.data);
-            waitDMA(2);
+            this->waitDMA(2);
             if(c.waitDelay) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
-        gpio_set_level(BACKLPin, 1);
+        ioExpander.currentOutput.bit2 = 1; //Backlight
+        ioExpander.handler();
         fmt::print("Display is fully configured!\n");
     }
 
@@ -74,14 +74,14 @@ public:
         queueData(std::array{
           std::byte{0},
           std::byte{0},
-          std::byte((displayConfig::displayWidth) >> 8),
-          std::byte((displayConfig::displayWidth) bitand 0xff)});
+          std::byte((Config::displayWidth) >> 8),
+          std::byte((Config::displayWidth) bitand 0xff)});
         queueCommand(std::byte{0x2B});
         queueData(std::array{
           std::byte(yPos >> 8),
           std::byte(yPos bitand 0xff),
-          std::byte((yPos + displayConfig::parallelSend) >> 8),
-          std::byte((yPos + displayConfig::parallelSend) bitand 0xff)});
+          std::byte((yPos + Config::parallelSend) >> 8),
+          std::byte((yPos + Config::parallelSend) bitand 0xff)});
         queueCommand(std::byte{0x2C});
         queueData(lineData);
     }
@@ -89,7 +89,7 @@ public:
     //TODO: Function is currently blocking... do not wait for DMA!
     void flush() {
         if(!firstFlush){
-            waitDMA(6);
+            this->waitDMA(6);
         }
         firstFlush = false;
         static std::size_t cycle{};
@@ -100,12 +100,11 @@ public:
         }
         auto& lineBuffer = buffer[cycle];
         queueLine(line, std::as_bytes(std::span{lineBuffer}));
-        line += displayConfig::parallelSend;
+        line += Config::parallelSend;
         ++cycle;
     }
 
     void handler() {
-        buffer.setImage(image);
         //flush();
     }
 };
