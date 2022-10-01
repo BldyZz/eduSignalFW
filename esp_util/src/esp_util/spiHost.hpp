@@ -22,7 +22,7 @@ public:
     spiHost()
       : busConfig{.mosi_io_num = Config::MOSI, .miso_io_num = Config::MISO, .sclk_io_num = Config::SCK, .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = static_cast<int>(Config::transferSize)}
       , hostDevice{Config::SPIHost} {
-        fmt::print("Initializing SPI2...\n");
+        fmt::print("Initializing {}...\n", Config::Name);
         ESP_ERROR_CHECK(spi_bus_initialize(hostDevice, &busConfig, Config::DMAChannel));
     }
     spi_host_device_t getHostDevice() const { return hostDevice; }
