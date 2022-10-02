@@ -18,6 +18,6 @@ struct BoardSPIConfig{
     static constexpr auto SCK{GPIO_NUM_18};
     static constexpr auto SPIHost{VSPI_HOST};
     static constexpr auto transferSize{1024};
-    static constexpr auto DMAChannel{0};
+    static constexpr auto DMAChannel{SPI_DMA_DISABLED};
     static constexpr auto Name{"Board SPI"};
 };
