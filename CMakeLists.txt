@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
-#set(EXTRA_COMPONENT_DIRS components)
+set(EXTRA_COMPONENT_DIRS main)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(eduSignal)
