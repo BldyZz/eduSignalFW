@@ -30,13 +30,13 @@ extern "C" void app_main() {
     esp::i2cMaster<I2C0_Config>      boardI2C;
     //BHI160<I2C0_Config, GPIO_NUM_39> imu;
     //MAX30102<I2C0_Config>            pulseOxiMeter;
-    PCF8574<I2C0_Config>             ioExpander;
+    //PCF8574<I2C0_Config>             ioExpander;
     //TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
 
     esp::spiHost<displayConfig::SPIConfig> displaySPI;
-    Display<displayConfig, I2C0_Config> display{displaySPI, ioExpander};
+    Display<displayConfig> display{displaySPI};
 
-    //esp::spiHost<BoardSPIConfig>                                                boardSPI;
+    esp::spiHost<BoardSPIConfig>                                                boardSPI;
     //ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
     //MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
 
@@ -50,14 +50,13 @@ extern "C" void app_main() {
         }
 
         if(ecg.ecgData.has_value()){
-            //fmt::print("{} {:#032b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
-            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(ecg.ecgData.value(), ", "));
+            //fmt::print("{} {:#034b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
+            fmt::print("Data: {} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(ecg.ecgData.value(), ", "));
             ecg.ecgData = {};
         }
 
-
         if(pulseOxiMeter.IRDValue.has_value() && pulseOxiMeter.RDValue.has_value()){
-            fmt::print("PulseOxi: RD:{:#06x} IRD:{:#06x}\n", pulseOxiMeter.IRDValue.value(), pulseOxiMeter.RDValue.value());
+            fmt::print("Data: {} {} {}\n",std::chrono::steady_clock::now().time_since_epoch() , pulseOxiMeter.IRDValue.value(), pulseOxiMeter.RDValue.value());
             pulseOxiMeter.IRDValue = {};
             pulseOxiMeter.RDValue = {};
         }
@@ -74,12 +73,12 @@ extern "C" void app_main() {
         //ecg.handler();
         //adc.handler();
 
-        ioExpander.handler();
+        //ioExpander.handler();
         //imu.handler();
         //pulseOxiMeter.handler();
         //touchScreenController.handler();
-        display.handler();
-        display.buffer.setPixel(10,12,Pixel{255,0,0});
+        //display.handler();
+        //display.buffer.setPixel(10,12,Pixel{255,0,0});
         display.flush();
     }
 

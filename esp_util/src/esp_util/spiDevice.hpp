@@ -82,6 +82,20 @@ public:
         assert(spi_device_queue_trans(spiDeviceHandle, &t, portMAX_DELAY) == ESP_OK);
     }
 
+    template<typename F>
+    void sendDMACopy(std::span<std::byte const> package, F callback) {
+        assert(package.size() < 5);
+
+        spi_transaction_t& t = transactions.getFreeTransaction();
+        std::memcpy(t.tx_data, package.data(), package.size_bytes());
+        t.flags = SPI_TRANS_USE_TXDATA;
+        t.tx_buffer = nullptr;
+        t.user      = reinterpret_cast<void*>(CallbackType{callback});
+        t.length    = package.size_bytes() * 8;
+        //fmt::print("RX:{}\tTX:{}\tFlags: {}\tCMD:{}\n", t.length, t.rxlength, t.flags, t.cmd);
+        assert(spi_device_queue_trans(spiDeviceHandle, &t, portMAX_DELAY) == ESP_OK);
+    }
+
     void waitDMA(std::size_t messages) {
         for(std::size_t i = 0; i < messages; ++i) {
             spi_transaction_t* rtrans;

@@ -52,8 +52,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     tp                                                     timerWaitForReset;
     tp                                                     newSampleReady;
     tp                                                     resetTime;
-    std::optional<std::array<std::uint32_t, channelCount>> noiseData;
-    std::optional<std::array<std::uint32_t, channelCount>> ecgData;
+    std::optional<std::array<std::int32_t, channelCount>> noiseData;
+    std::optional<std::array<std::int32_t, channelCount>> ecgData;
     std::optional<std::uint32_t>                           statusBits;
     std::size_t                                            resetCounter{0};
 
@@ -110,13 +110,16 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<std::uint32_t, channelCount>     transformedData{};
+        std::array<std::int32_t, channelCount>     transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
-            std::memcpy(&transformedData[i], &rxData[3 + i * 3], 3);
-            //transformedData[i] = transformedData[i] >> 6;
+            std::array<std::byte, 3> toExtract;
+            std::memcpy(&toExtract[0], &rxData[3+i*3], 3);
+            std::ranges::reverse(toExtract);
+            std::memcpy(&transformedData[i], &toExtract[0], 3);
+            //transformedData[i] = transformedData[i] >> 4;
         }
-        std::uint32_t tempStatusBits;
+        std::int32_t tempStatusBits;
         std::memcpy(&tempStatusBits, &rxData[0], 3);
         statusBits = tempStatusBits;
         ecgData    = transformedData;
@@ -127,13 +130,15 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<std::uint32_t, channelCount>     transformedData{};
+        std::array<std::int32_t, channelCount>     transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
-            std::memcpy(&transformedData[i], &rxData[3 + i * 3], 3);
-            //transformedData[i] = transformedData[i] >> 8;
+            std::array<std::byte, 3> toExtract;
+            std::memcpy(&toExtract[0], &rxData[3+i*3], 3);
+            std::ranges::reverse(toExtract);
+            std::memcpy(&transformedData[i], &toExtract[0], 3);
         }
-        std::uint32_t tempStatusBits;
+        std::int32_t tempStatusBits;
         std::memcpy(&tempStatusBits, &rxData[0], 3);
         statusBits = tempStatusBits;
         noiseData  = transformedData;
@@ -270,7 +275,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x05},
+                  std::byte{0x01},
                   std::byte{0x05},
                   std::byte{0x05},
                   std::byte{0x05}});
