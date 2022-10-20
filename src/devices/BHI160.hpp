@@ -281,16 +281,22 @@ struct BHI160 : private esp::i2cDevice<I2CConfig, 0x28> {
 
         case State::getData:
             {
-                //TODO: Break up reads greater than 50 bytes into multiple read accesses!
                 static constexpr auto                       maximalBufferSize{50};
                 std::array<std::uint8_t, maximalBufferSize> rxData{};
-                this->read(Register::Buffer_out, bytesInFIFO, rxData.data());
+                std::size_t bytesToSend{};
+                if(bytesInFIFO > maximalBufferSize){
+                    bytesToSend = maximalBufferSize;
+                    bytesInFIFO = bytesInFIFO - maximalBufferSize;
+                }
+                else{
+                    bytesToSend = bytesInFIFO;
+                    st = State::idle;
+                }
+                this->read(Register::Buffer_out, bytesToSend, rxData.data());
                 std::span printSpan{rxData.begin(), rxData.begin() + bytesInFIFO};
                 //fmt::print("BHI160: Buffer data: {:#4x}\n", fmt::join(printSpan, ", "));
                 this->write(std::array{Register::FIFO_Flush, std::byte{35}});
                 handleData(as_writable_bytes(printSpan));
-
-                st = State::idle;
             }
             break;
         }

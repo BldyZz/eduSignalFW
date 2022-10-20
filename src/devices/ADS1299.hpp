@@ -52,8 +52,9 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     tp                                                     timerWaitForReset;
     tp                                                     newSampleReady;
     tp                                                     resetTime;
-    std::optional<std::array<std::int32_t, channelCount>> noiseData;
-    std::optional<std::array<std::int32_t, channelCount>> ecgData;
+    using dataType = std::uint32_t;
+    std::optional<std::array<dataType, channelCount>> noiseData;
+    std::optional<std::array<dataType, channelCount>> ecgData;
     std::optional<std::uint32_t>                           statusBits;
     std::size_t                                            resetCounter{0};
 
@@ -110,7 +111,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<std::int32_t, channelCount>     transformedData{};
+        std::array<dataType, channelCount>     transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
             std::array<std::byte, 3> toExtract;
@@ -130,7 +131,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<std::int32_t, channelCount>     transformedData{};
+        std::array<dataType, channelCount>     transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
             std::array<std::byte, 3> toExtract;
@@ -324,7 +325,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x00},
+                  std::byte{0x60},
                   std::byte{0x00},
                   std::byte{0x00},
                   std::byte{0x00}});
