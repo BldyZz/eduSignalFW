@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <map>
 #include <span>
 #include <thread>
 #include <vector>
@@ -46,17 +47,17 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
 
     State st{State::reset};
     using tp = std::chrono::time_point<std::chrono::system_clock>;
-    tp                                                     timerPowerOn;
-    tp                                                     timerPowerSettle;
-    tp                                                     timerSettleRef;
-    tp                                                     timerWaitForReset;
-    tp                                                     newSampleReady;
-    tp                                                     resetTime;
+    tp timerPowerOn;
+    tp timerPowerSettle;
+    tp timerSettleRef;
+    tp timerWaitForReset;
+    tp newSampleReady;
+    tp resetTime;
     using dataType = std::uint32_t;
     std::optional<std::array<dataType, channelCount>> noiseData;
     std::optional<std::array<dataType, channelCount>> ecgData;
-    std::optional<std::uint32_t>                           statusBits;
-    std::size_t                                            resetCounter{0};
+    std::optional<std::uint32_t>                      statusBits;
+    std::size_t                                       resetCounter{0};
 
     struct Register {
         static constexpr std::byte ID{0x00};
@@ -111,11 +112,11 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<dataType, channelCount>     transformedData{};
+        std::array<dataType, channelCount>          transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
             std::array<std::byte, 3> toExtract;
-            std::memcpy(&toExtract[0], &rxData[3+i*3], 3);
+            std::memcpy(&toExtract[0], &rxData[3 + i * 3], 3);
             std::ranges::reverse(toExtract);
             std::memcpy(&transformedData[i], &toExtract[0], 3);
             //transformedData[i] = transformedData[i] >> 4;
@@ -131,11 +132,11 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
         statusBits = {};
         std::array<std::byte, 3 + channelCount * 3> rxData{};
         std::array<std::byte, 3 + channelCount * 3> txData{std::byte{0x00}};
-        std::array<dataType, channelCount>     transformedData{};
+        std::array<dataType, channelCount>          transformedData{};
         this->sendBlocking(txData, rxData);
         for(std::size_t i{}; i < channelCount; ++i) {
             std::array<std::byte, 3> toExtract;
-            std::memcpy(&toExtract[0], &rxData[3+i*3], 3);
+            std::memcpy(&toExtract[0], &rxData[3 + i * 3], 3);
             std::ranges::reverse(toExtract);
             std::memcpy(&transformedData[i], &toExtract[0], 3);
         }
@@ -198,11 +199,43 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                         Command::BytesToWrite(1),
                         std::byte{0x00}},
                       rxData);
-                    if((rxData[2] & std::byte{0b00011111}) == std::byte{0b00011100}) {
+                    auto                       IDRegisterData = rxData[2];
+                    static constexpr std::byte DeviceIDChannelMask{0x0F};
+                    static constexpr std::byte DeviceID{0b11};
+                    auto                       getBitmapOfChannelNumber = []() constexpr {
+                                              if constexpr(channelCount == 4) {
+                                                  return std::byte{0b00};
+                        }
+                                              if constexpr(channelCount == 6) {
+                                                  return std::byte{0b01};
+                        }
+                                              if constexpr(channelCount == 8) {
+                                                  return std::byte{0b10};
+                        }
+                                              return std::byte{0b11};
+                    };
+                    static constexpr std::byte DeviceIDCompare{
+                      (DeviceID << 2) bitand getBitmapOfChannelNumber()};
+                    if((IDRegisterData & DeviceIDChannelMask) == DeviceIDCompare) {
+                        static constexpr std::byte NOT_PD_REFBUF{0b1};
+                        static constexpr std::byte BIAS_MEAS{0b0};
+                        static constexpr std::byte BIASREF_INT{0b0};
+                        static constexpr std::byte NOT_PD_BIAS{0b0};
+                        static constexpr std::byte BIAS_LOFF_SENS{0b0};
+                        static constexpr std::byte BIAS_STAT{0b0};
+                        static constexpr std::byte Config3RegisterContent{
+                            NOT_PD_REFBUF << 7 |
+                            std::byte{0b11} << 5 |
+                            BIAS_MEAS << 4 |
+                            BIASREF_INT << 3 |
+                            NOT_PD_BIAS << 2 |
+                            BIAS_LOFF_SENS << 1 |
+                            BIAS_STAT
+                        };
                         this->sendBlocking(std::array{
                           Command::WREG(Register::CONFIG3),
                           Command::BytesToWrite(1),
-                          std::byte{0xE0}});
+                          Config3RegisterContent});
                         //Wait for internal Reference to settle
                         timerSettleRef
                           = std::chrono::system_clock::now() + std::chrono::microseconds(300);
@@ -232,14 +265,35 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 auto now = std::chrono::system_clock::now();
                 if(now > timerSettleRef) {
                     //WriteCertain Registers
+                    static constexpr std::byte NOT_DAISY_EN{0b0};
+                    static constexpr std::byte CLK_EN{0b0};
+                    static constexpr std::byte DATA_RATE{0b110};
+                    static constexpr std::byte CONFIG1RegisterContent{
+                        std::byte{0b1} << 7 bitor
+                        NOT_DAISY_EN << 6 bitor
+                        CLK_EN << 5 bitor
+                        std::byte{0b10} << 3 bitor
+                        DATA_RATE
+                    };
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CONFIG1),
                       Command::BytesToWrite(1),
-                      std::byte{0x96}});
+                      CONFIG1RegisterContent});
+                    //TODO Ugly... change to other system... template class maybe
+                    static constexpr std::byte INT_CAL{0b0};
+                    static constexpr std::byte CAL_AMP{0b0};
+                    static constexpr std::byte CAL_FREQ{0b00};
+                    static constexpr std::byte CONFIG2RegisterContent{
+                        std::byte{0b110} << 5 bitor
+                        INT_CAL << 4 bitor
+                        std::byte{0b0} << 3 bitor
+                        CAL_AMP << 2 bitor
+                        CAL_FREQ
+                    };
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CONFIG2),
                       Command::BytesToWrite(1),
-                      std::byte{0xC0}});
+                      CONFIG2RegisterContent});
                     //Set all channels to input Short
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CH1SET),
