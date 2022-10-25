@@ -7,8 +7,8 @@
 struct displayConfig{
     static constexpr auto CSPin{GPIO_NUM_15};
     static constexpr auto DCPin{GPIO_NUM_25};
-    static constexpr auto RESETPin{GPIO_NUM_32};
-    static constexpr auto BACKLIGHTPin{GPIO_NUM_2};
+    static constexpr auto RESETPin{GPIO_NUM_2};
+    static constexpr auto BACKLIGHTPin{GPIO_NUM_32};
     static constexpr auto displayHeight{240};
     static constexpr auto displayWidth{320};
     static constexpr auto displaySize{displayHeight * displayWidth};

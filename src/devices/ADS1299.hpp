@@ -215,8 +215,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                                               return std::byte{0b11};
                     };
                     static constexpr std::byte DeviceIDCompare{
-                      (DeviceID << 2) bitand getBitmapOfChannelNumber()};
-                    if((IDRegisterData & DeviceIDChannelMask) == DeviceIDCompare) {
+                      (DeviceID << 2) bitor getBitmapOfChannelNumber()};
+                    ((IDRegisterData & DeviceIDChannelMask) == DeviceIDCompare) {
                         static constexpr std::byte NOT_PD_REFBUF{0b1};
                         static constexpr std::byte BIAS_MEAS{0b0};
                         static constexpr std::byte BIASREF_INT{0b0};

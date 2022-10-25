@@ -33,7 +33,7 @@
 extern "C" void app_main() {
     esp::i2cMaster<I2C0_Config>      boardI2C;
     BHI160<I2C0_Config, GPIO_NUM_39> imu;
-    MAX30102<I2C0_Config>            pulseOxiMeter;
+    //MAX30102<I2C0_Config>            pulseOxiMeter;
     PCF8574<I2C0_Config>             ioExpander;
     TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
 
@@ -65,13 +65,13 @@ extern "C" void app_main() {
             display.setECGValue(ecg.ecgData.value()[0]);
             ecg.ecgData = {};
         }
-        */
+
 
         if(pulseOxiMeter.IRDValue.has_value() && pulseOxiMeter.RDValue.has_value()){
             //fmt::print("Data: {} {} {}\n",std::chrono::steady_clock::now().time_since_epoch() , pulseOxiMeter.IRDValue.value(), pulseOxiMeter.RDValue.value());
-            display.setOxiValues(pulseOxiMeter.RDValue.value(), pulseOxiMeter.IRDValue.value());
-            pulseOxiMeter.IRDValue = {};
-            pulseOxiMeter.RDValue = {};
+            //display.setOxiValues(pulseOxiMeter.RDValue.value(), pulseOxiMeter.IRDValue.value());
+            //pulseOxiMeter.IRDValue = {};
+            //pulseOxiMeter.RDValue = {};
         }
         /*
 
@@ -88,7 +88,7 @@ extern "C" void app_main() {
 
         ioExpander.handler();
         imu.handler();
-        pulseOxiMeter.handler();
+        //pulseOxiMeter.handler();
         touchScreenController.handler();
     }
 
