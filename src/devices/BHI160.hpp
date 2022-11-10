@@ -105,9 +105,9 @@ struct BHI160 : private esp::i2cDevice<I2CConfig, 0x28> {
             case Event::Accelerometer:
             case Event::AccelerometerWakeUp:
             {
-                std::int16_t tempX(std::to_integer<std::uint8_t>(package[1]) | std::to_integer<std::uint8_t>(package[2]) << 8);
+                std::int16_t tempZ(std::to_integer<std::uint8_t>(package[1]) | std::to_integer<std::uint8_t>(package[2]) << 8);
                 std::int16_t tempY(std::to_integer<std::uint8_t>(package[3]) | std::to_integer<std::uint8_t>(package[4]) << 8);
-                std::int16_t tempZ(std::to_integer<std::uint8_t>(package[5]) | std::to_integer<std::uint8_t>(package[6]) << 8);
+                std::int16_t tempX(std::to_integer<std::uint8_t>(package[5]) | std::to_integer<std::uint8_t>(package[6]) << 8);
                 std::uint8_t tempStatus{std::to_integer<std::uint8_t>(package[7])};
                 accData.X = tempX;
                 accData.Y = tempY;

@@ -1,6 +1,10 @@
 # eduSignalFW
 firmware for edu signal
 
+## Building this project
+- Clone repository
+- Update all submodules 
+
 ## TODO
 Project will not build with the latest ESP-IDF.
 ASIO_CONCEPT is broken!

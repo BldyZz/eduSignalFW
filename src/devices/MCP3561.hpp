@@ -117,7 +117,7 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                   //CONFIG2
                   std::byte{0xCF},
                   //CONFIG3
-                  std::byte{0xD2},
+                  std::byte{0xE2},
                   //IRQ
                   std::byte{0x77},
                   //MUX
@@ -158,9 +158,11 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                 std::array<std::byte, readSize> txData{std::byte{0x00}};
                 txData[0] = Command::IncrementalRead(Register::ADCDATA);
                 this->sendBlocking(txData, rxData);
-                std::uint32_t transformedData{};
+                std::int32_t transformedData{};
                 std::ranges::reverse(rxData);
-                std::memcpy(&transformedData, &rxData[1], 3);
+                std::memcpy(&transformedData, &rxData[0], 4);
+                transformedData = transformedData << 8;
+                //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,transformedData);
                 st = State::idle;
 
             }

@@ -41,14 +41,14 @@ extern "C" void app_main() {
     ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
     MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
 
-    Display<displayConfig> display;
+    //Display<displayConfig> display;
 
     auto next10ms = std::chrono::system_clock::now() + std::chrono::milliseconds(80);
     while(1) {
         auto now = std::chrono::system_clock::now();
         if(next10ms < now)
         {
-            display.handler();
+            //display.handler();
             next10ms = now + std::chrono::milliseconds(200);
         }
 
@@ -57,14 +57,15 @@ extern "C" void app_main() {
             //fmt::print("Noise Data: {:#032b}\n",ecg.noiseData.value()[0]);
             fmt::print("Noise Data: {}\n",ecg.noiseData.value()[0]);
             ecg.noiseData = {};
-        }
+        } */
 
         if(ecg.ecgData.has_value()){
             //fmt::print("{} {:#034b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
-            //fmt::print("Data: {} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(ecg.ecgData.value(), ", "));
-            display.setECGValue(ecg.ecgData.value()[0]);
+            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , ecg.ecgData.value()[0]);
+            //display.setECGValue(ecg.ecgData.value()[0]);
             ecg.ecgData = {};
         }
+        /*
 
 
         if(pulseOxiMeter.IRDValue.has_value() && pulseOxiMeter.RDValue.has_value()){

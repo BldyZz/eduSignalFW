@@ -23,7 +23,7 @@ template<
   gpio_num_t  NDRDYPin>
 struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     explicit ADS1299(esp::spiHost<SPIConfig> const& bus)
-      : esp::spiDevice<SPIConfig, 20>(bus, 1 * 1000 * 1000, CSPin, 1) {
+      : esp::spiDevice<SPIConfig, 20>(bus, 1 * 100 * 1000, CSPin, 1) {
         fmt::print("ADS1299: Initializing...\n");
         gpio_set_direction(RESETPin, GPIO_MODE_OUTPUT);
         gpio_set_direction(PDWNPin, GPIO_MODE_OUTPUT);
@@ -53,7 +53,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
     tp timerWaitForReset;
     tp newSampleReady;
     tp resetTime;
-    using dataType = std::uint32_t;
+    using dataType = std::int32_t;
     std::optional<std::array<dataType, channelCount>> noiseData;
     std::optional<std::array<dataType, channelCount>> ecgData;
     std::optional<std::uint32_t>                      statusBits;
@@ -118,8 +118,12 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
             std::array<std::byte, 3> toExtract;
             std::memcpy(&toExtract[0], &rxData[3 + i * 3], 3);
             std::ranges::reverse(toExtract);
+            transformedData[i] = std::numeric_limits<dataType>::max();
             std::memcpy(&transformedData[i], &toExtract[0], 3);
-            //transformedData[i] = transformedData[i] >> 4;
+            static constexpr auto bitsToTrash{4};
+            transformedData[i] = transformedData[i] >> bitsToTrash;
+            transformedData[i] = transformedData[i] << 8+bitsToTrash;
+            //transformedData[i] = transformedData[i] >> 8;
         }
         std::int32_t tempStatusBits;
         std::memcpy(&tempStatusBits, &rxData[0], 3);
@@ -278,7 +282,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CONFIG1),
                       Command::BytesToWrite(1),
-                      CONFIG1RegisterContent});
+                      std::byte{0x96}});
                     //TODO Ugly... change to other system... template class maybe
                     static constexpr std::byte INT_CAL{0b0};
                     static constexpr std::byte CAL_AMP{0b0};
@@ -293,7 +297,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CONFIG2),
                       Command::BytesToWrite(1),
-                      CONFIG2RegisterContent});
+                      std::byte{0xC0}});
                     //Set all channels to input Short
                     this->sendBlocking(std::array{
                       Command::WREG(Register::CH1SET),
@@ -326,11 +330,11 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CONFIG2),
                   Command::BytesToWrite(1),
-                  std::byte{0xD1}});
+                  std::byte{0xD0}});
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x01},
+                  std::byte{0x05},
                   std::byte{0x05},
                   std::byte{0x05},
                   std::byte{0x05}});
@@ -379,10 +383,10 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x60},
                   std::byte{0x00},
-                  std::byte{0x00},
-                  std::byte{0x00}});
+                  std::byte{0x01},
+                  std::byte{0x01},
+                  std::byte{0x01}});
                 this->sendBlocking(std::array{Command::START});
                 this->sendBlocking(std::array{Command::RDATAC});
                 fmt::print("ADS1299: Config complete!\n");
