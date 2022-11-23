@@ -120,8 +120,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
             std::ranges::reverse(toExtract);
             transformedData[i] = std::numeric_limits<dataType>::max();
             std::memcpy(&transformedData[i], &toExtract[0], 3);
-            static constexpr auto bitsToTrash{4};
-            transformedData[i] = transformedData[i] >> bitsToTrash;
+            static constexpr auto bitsToTrash{0};
+            //transformedData[i] = transformedData[i] >> bitsToTrash;
             transformedData[i] = transformedData[i] << 8+bitsToTrash;
             //transformedData[i] = transformedData[i] >> 8;
         }
@@ -239,7 +239,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                         this->sendBlocking(std::array{
                           Command::WREG(Register::CONFIG3),
                           Command::BytesToWrite(1),
-                          Config3RegisterContent});
+                          std::byte{0xE0}});
                         //Wait for internal Reference to settle
                         timerSettleRef
                           = std::chrono::system_clock::now() + std::chrono::microseconds(300);
@@ -334,8 +334,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x05},
-                  std::byte{0x05},
+                  std::byte{0x00},
+                  std::byte{0x00},
                   std::byte{0x05},
                   std::byte{0x05}});
                 this->sendBlocking(std::array{Command::START});
@@ -349,7 +349,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 if(gpio_get_level(NDRDYPin) == 0) {
                     //TODO: Capture Data and Test Signals
                     captureData();
-                    st = State::setCustomSettings;
+                    st = State::idle;
+                    //st = State::setCustomSettings;
                 }
             }
             break;
@@ -358,6 +359,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
             {
                 this->sendBlocking(std::array{Command::SDATAC});
                 //Enable Lead-off Detection
+                /*
                 this->sendBlocking(std::array{
                   Command::WREG(Register::LOFF),
                   Command::BytesToWrite(1),
@@ -370,7 +372,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                   Command::WREG(Register::LOFF_SENSP),
                   Command::BytesToWrite(2),
                   std::byte{0xFF},
-                  std::byte{0xFF}});
+                  std::byte{0xFF}});*/
                 //-- Setting up MUX Configuration
                 this->sendBlocking(std::array{Command::SDATAC});
                 //Configure Config2 Register to default value!

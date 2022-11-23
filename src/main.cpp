@@ -61,7 +61,8 @@ extern "C" void app_main() {
 
         if(ecg.ecgData.has_value()){
             //fmt::print("{} {:#034b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
-            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , ecg.ecgData.value()[0]);
+            //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , ecg.ecgData.value()[0]);
+            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , fmt::join(ecg.ecgData.value(), ", "));
             //display.setECGValue(ecg.ecgData.value()[0]);
             ecg.ecgData = {};
         }
