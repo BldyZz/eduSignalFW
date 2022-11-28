@@ -38,6 +38,9 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
 
     static constexpr std::byte DeviceAddress{0b01};
 
+    using dataType = std::int32_t;
+    std::optional<dataType> outputData{};
+
     struct Command {
         static constexpr std::byte StartConversion{DeviceAddress << 6 | std::byte{0b1010'00}};
         static constexpr std::byte Standby{DeviceAddress << 6 | std::byte{0b1011'00}};
@@ -110,30 +113,30 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
             {
                 this->sendBlocking(std::array{
                   Command::IncrementalWrite(Register::CONFIG0),
-                  //CONFIG0
-                  std::byte{0xE3},
+                  //CONFIG0 0xe3
+                  std::byte{0b11'01'00'11},
                   //CONFIG1
-                  std::byte{0x3C},
-                  //CONFIG2
-                  std::byte{0xCF},
-                  //CONFIG3
-                  std::byte{0xE2},
+                  std::byte{0b00'0000'00},
+                  //CONFIG2 0x8f
+                  std::byte{0b10'001'0'11},
+                  //CONFIG3 0xe0
+                  std::byte{0b11'01'0'0'1'0},
                   //IRQ
                   std::byte{0x77},
                   //MUX
-                  std::byte{0x08},
+                  std::byte{0x88},
                   //SCAN
                   std::byte{0x00},
                   std::byte{0x00},
-                  std::byte{0x01},
+                  std::byte{0x00},
                   //TIMER
                   std::byte{0x00},
                   std::byte{0x00},
                   std::byte{0x00},
                   //OFFSETCAL
                   std::byte{0x00},
-                  std::byte{0x51},
-                  std::byte{0x6A},
+                  std::byte{0x03},
+                  std::byte{0x7A},
                   //GAINCAL
                   std::byte{0x00},
                   std::byte{0x00},
@@ -153,16 +156,20 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
 
         case State::captureData:
             {
-                static constexpr auto readSize{1+3};
-                std::array<std::byte, readSize> rxData{std::byte{0x00}};
-                std::array<std::byte, readSize> txData{std::byte{0x00}};
+                static constexpr auto readSize{1+4};
+                std::array<std::byte, readSize> rxData{};
+                rxData.fill(std::byte{0x00});
+                std::array<std::byte, readSize> txData{};
+                txData.fill(std::byte{0x00});
                 txData[0] = Command::IncrementalRead(Register::ADCDATA);
                 this->sendBlocking(txData, rxData);
-                std::int32_t transformedData{};
+                dataType transformedData{};
                 std::ranges::reverse(rxData);
                 std::memcpy(&transformedData, &rxData[0], 4);
-                transformedData = transformedData << 8;
-                //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() ,transformedData);
+                //transformedData = transformedData << 8;
+                transformedData = transformedData >> 8;
+                //fmt::print("{} {:#010b}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(rxData, ", "));
+                outputData = transformedData;
                 st = State::idle;
 
             }
