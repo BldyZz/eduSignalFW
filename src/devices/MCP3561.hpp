@@ -116,7 +116,7 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                   //CONFIG0 0xe3
                   std::byte{0b11'01'00'11},
                   //CONFIG1
-                  std::byte{0b00'0000'00},
+                  std::byte{0b00'0011'00},
                   //CONFIG2 0x8f
                   std::byte{0b10'001'0'11},
                   //CONFIG3 0xe0
@@ -124,7 +124,7 @@ struct MCP3561 : private esp::spiDevice<SPIConfig, 20> {
                   //IRQ
                   std::byte{0x77},
                   //MUX
-                  std::byte{0x88},
+                  std::byte{0x80},
                   //SCAN
                   std::byte{0x00},
                   std::byte{0x00},

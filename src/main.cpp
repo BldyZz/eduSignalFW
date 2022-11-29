@@ -1,6 +1,3 @@
-
-
-
 #include "devices/ADS1299.hpp"
 #include "devices/BHI160.hpp"
 #include "devices/MAX30102.hpp"
@@ -44,8 +41,10 @@ extern "C" void app_main() {
     //Display<displayConfig> display;
 
     auto next10ms = std::chrono::system_clock::now() + std::chrono::milliseconds(80);
+    static constexpr std::size_t sampleSize{1000};
     std::size_t valueCounter{};
     while(1) {
+        fmt::print("{}\n", std::chrono::steady_clock::now().time_since_epoch());
         auto now = std::chrono::system_clock::now();
         if(next10ms < now)
         {
@@ -53,8 +52,7 @@ extern "C" void app_main() {
             next10ms = now + std::chrono::milliseconds(200);
         }
 
-        if(adc.outputData.has_value() && valueCounter < 1000){
-            ++valueCounter;
+        if(adc.outputData.has_value() && valueCounter < sampleSize){
             //def calcV(LSB, Vref, G):
             //    return (LSB * Vref) / (G * 8388608)
             auto calcVoltage = [](std::int32_t LSB)
@@ -65,9 +63,9 @@ extern "C" void app_main() {
                 static constexpr auto DataSheetConstant{8388608};
                 return (LSB * Vref) / (Gain * DataSheetConstant);
             };
-            fmt::print("{} {}\n",std::chrono::steady_clock::now().time_since_epoch(),
-                       calcVoltage(adc.outputData.value()));
+            //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , adc.outputData.value());
             adc.outputData = {};
+            ++valueCounter;
         }
 
         /*
