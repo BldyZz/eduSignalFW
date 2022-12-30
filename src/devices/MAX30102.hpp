@@ -39,12 +39,12 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
         static constexpr std::array Reset{Register::ModeConfig, std::byte{0b0100'0000}};
     };
 
-    std::optional<std::uint32_t> RDValue{};
-    std::optional<std::uint32_t> IRDValue{};
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> dataBuffer;
 
     enum class State { reset, init, idle, readData, changeConfig };
     State        st{State::reset};
-    std::uint8_t writePointer{0x00};
+    int numberOfSamples{};
+
     void         handler() {
                 switch(st) {
                 case State::reset:
@@ -86,8 +86,12 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
                 this->read(Register::FiFoRead, 1, &ReadPointer);
                 std::uint8_t WritePointer{};
                 this->read(Register::FiFoWrite, 1, &WritePointer);
-                if(ReadPointer == WritePointer) {
-                            st = State::readData;
+                if(ReadPointer != WritePointer) {
+                    numberOfSamples = WritePointer - ReadPointer;
+                    if(numberOfSamples < 0){
+                        numberOfSamples += 32;
+                    }
+                    st = State::readData;
                 }
             }
             break;
@@ -96,12 +100,24 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
             {
                         std::array<std::uint8_t, 6> rxData{};
                         this->read(Register::FiFoDataRegister, rxData.size(), rxData.data());
-                        //TODO: Format data...
-                        std::uint32_t temp{};
-                        std::memcpy(&temp, &rxData[0], 3);
-                        RDValue = temp;
-                        std::memcpy(&temp, &rxData[3], 3);
-                        IRDValue = temp;
+                        std::ranges::reverse(rxData);
+
+                        std::uint32_t tempRed{0};
+                        std::memcpy(&tempRed, &rxData[3], 3);
+                        tempRed &= 0x3FFFF;
+
+                        std::uint32_t tempInfraRed{0};
+                        std::memcpy(&tempInfraRed, &rxData[0], 3);
+                        tempInfraRed &= 0x3FFFF;
+
+                        if(dataBuffer.size() < 100)
+                        {
+                            dataBuffer.push_back(std::make_pair(tempRed,tempInfraRed));
+                        }
+                        else{
+                            fmt::print("MAX30102: ERROR: To much samples in buffer!\n");
+                        }
+                        --numberOfSamples;
                         st       = State::changeConfig;
             }
             break;
@@ -109,7 +125,12 @@ struct MAX30102 : esp::i2cDevice<I2CConfig, 0x57> {
                 case State::changeConfig:
             {
                         //TODO: Update configuration of the sensor while measuring...
-                st = State::idle;
+                        if(numberOfSamples > 0){
+                            st = State::readData;
+                        }
+                        else {
+                            st = State::idle;
+                        }
             }
             break;
         }

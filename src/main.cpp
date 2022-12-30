@@ -30,13 +30,13 @@
 extern "C" void app_main() {
     esp::i2cMaster<I2C0_Config>      boardI2C;
     //BHI160<I2C0_Config, GPIO_NUM_39> imu;
-    //MAX30102<I2C0_Config>            pulseOxiMeter;
+    MAX30102<I2C0_Config>            pulseOxiMeter;
     //PCF8574<I2C0_Config>             ioExpander;
     //TSC2003<I2C0_Config, GPIO_NUM_2> touchScreenController;
 
     esp::spiHost<BoardSPIConfig>                                                boardSPI;
     //ADS1299<BoardSPIConfig, 4, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_0, GPIO_NUM_36> ecg{boardSPI};
-    MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
+    //MCP3561<BoardSPIConfig, 8, GPIO_NUM_33, GPIO_NUM_34>                        adc{boardSPI};
 
     //Display<displayConfig> display;
 
@@ -44,7 +44,7 @@ extern "C" void app_main() {
     static constexpr std::size_t sampleSize{1000};
     std::size_t valueCounter{};
     while(1) {
-        fmt::print("{}\n", std::chrono::steady_clock::now().time_since_epoch());
+        //fmt::print("{}\n", std::chrono::steady_clock::now().time_since_epoch());
         auto now = std::chrono::system_clock::now();
         if(next10ms < now)
         {
@@ -52,6 +52,7 @@ extern "C" void app_main() {
             next10ms = now + std::chrono::milliseconds(200);
         }
 
+        /*
         if(adc.outputData.has_value() && valueCounter < sampleSize){
             //def calcV(LSB, Vref, G):
             //    return (LSB * Vref) / (G * 8388608)
@@ -63,10 +64,12 @@ extern "C" void app_main() {
                 static constexpr auto DataSheetConstant{8388608};
                 return (LSB * Vref) / (Gain * DataSheetConstant);
             };
-            //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , adc.outputData.value());
+            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , adc.outputData.value());
             adc.outputData = {};
             ++valueCounter;
         }
+     */
+
 
         /*
       if(ecg.noiseData.has_value()){
@@ -78,18 +81,21 @@ extern "C" void app_main() {
         if(ecg.ecgData.has_value()){
             //fmt::print("{} {:#034b}\n", std::chrono::steady_clock::now().time_since_epoch() ,ecg.ecgData.value()[0]);
             //fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , ecg.ecgData.value()[0]);
-            fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , fmt::join(ecg.ecgData.value(), ", "));
+            if(valueCounter < sampleSize + 10 && valueCounter > 9){
+                fmt::print("{} {}\n", std::chrono::steady_clock::now().time_since_epoch() , fmt::join(ecg.ecgData.value(), ", "));
+            }
             //display.setECGValue(ecg.ecgData.value()[0]);
             ecg.ecgData = {};
+            ++valueCounter;
         }
-        /*
+        */
 
 
-        if(pulseOxiMeter.IRDValue.has_value() && pulseOxiMeter.RDValue.has_value()){
-            //fmt::print("Data: {} {} {}\n",std::chrono::steady_clock::now().time_since_epoch() , pulseOxiMeter.IRDValue.value(), pulseOxiMeter.RDValue.value());
+        if(!pulseOxiMeter.dataBuffer.empty()){
+            fmt::print("{} {} {}\n",std::chrono::steady_clock::now().time_since_epoch() , pulseOxiMeter.dataBuffer.front().first, pulseOxiMeter.dataBuffer.front().second);
+            pulseOxiMeter.dataBuffer.erase(pulseOxiMeter.dataBuffer.begin(), pulseOxiMeter.dataBuffer.begin()+1);
             //display.setOxiValues(pulseOxiMeter.RDValue.value(), pulseOxiMeter.IRDValue.value());
-            //pulseOxiMeter.IRDValue = {};
-            //pulseOxiMeter.RDValue = {};
+
         }
         /*
 
@@ -102,11 +108,11 @@ extern "C" void app_main() {
         }
 */
         //ecg.handler();
-        adc.handler();
+        //adc.handler();
 
         //ioExpander.handler();
         //imu.handler();
-        //pulseOxiMeter.handler();
+        pulseOxiMeter.handler();
         //touchScreenController.handler();
     }
 
