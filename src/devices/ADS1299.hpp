@@ -122,8 +122,8 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
             std::memcpy(&transformedData[i], &toExtract[0], 3);
             static constexpr auto bitsToTrash{0};
             //transformedData[i] = transformedData[i] >> bitsToTrash;
-            transformedData[i] = transformedData[i] << 8+bitsToTrash;
-            //transformedData[i] = transformedData[i] >> 8;
+            transformedData[i] = transformedData[i] << 8;
+            transformedData[i] = transformedData[i] >> 8;
         }
         std::int32_t tempStatusBits;
         std::memcpy(&tempStatusBits, &rxData[0], 3);
@@ -245,7 +245,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                           = std::chrono::system_clock::now() + std::chrono::microseconds(300);
                         fmt::print("ADS1299: Communication established!\n");
                         resetCounter = 0;
-                        st           = State::setNoiseData;
+                        st           = State::setTestSignals;
                     } else {
                         fmt::print("ADS1299: Could not set up device! Restarting...\n");
                         ++resetCounter;
@@ -308,7 +308,7 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                       std::byte{0x01}});
                     this->sendBlocking(std::array{Command::START});
                     this->sendBlocking(std::array{Command::RDATAC});
-                    st = State::captureNoiseData;
+                    st = State::idle;
                 }
             }
             break;
@@ -334,13 +334,13 @@ struct ADS1299 : private esp::spiDevice<SPIConfig, 20> {
                 this->sendBlocking(std::array{
                   Command::WREG(Register::CH1SET),
                   Command::BytesToWrite(4),
-                  std::byte{0x00},
-                  std::byte{0x00},
+                  std::byte{0x05},
+                  std::byte{0x05},
                   std::byte{0x05},
                   std::byte{0x05}});
                 this->sendBlocking(std::array{Command::START});
                 this->sendBlocking(std::array{Command::RDATAC});
-                st = State::captureTestData;
+                st = State::idle;
             }
             break;
 
