@@ -1,0 +1,21 @@
+#pragma once
+
+// external
+#include "driver/gpio.h"
+#include "driver/spi_common.h"
+// std
+// internal
+
+namespace config
+{
+    struct BoardSPIConfig
+    {
+        static constexpr auto MISO{GPIO_NUM_19};
+        static constexpr auto MOSI{GPIO_NUM_23};
+        static constexpr auto SCK{GPIO_NUM_18};
+        static constexpr auto SPIHost{VSPI_HOST};
+        static constexpr auto transferSize{1024};
+        static constexpr auto DMAChannel{SPI_DMA_DISABLED};
+        static constexpr auto Name{"Board SPI"};
+    };
+}

@@ -1,76 +1,53 @@
-//
-// Created by patrick on 8/14/22.
-//
 #pragma once
+
+// external
 #include "esp_util/i2cDevice.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/timers.h"
+// std
 #include <chrono>
-#include <array>
-#include <cstdint>
-#include <optional>
-#include "fmt/format.h"
+// internal
+#include "../config/devices.h"
+#include "../util/types.h"
 
-template <typename I2CConfig>
-struct PCF8574 : private esp::i2cDevice<I2CConfig, 0x20>{
-    struct outputByte{
-        std::uint8_t bit0 : 1, bit1 : 1, bit2 : 1, bit3 : 1, bit4 : 1, bit5 : 1, bit6 : 1, bit7 : 1;
-        std::byte value() const {
-            return std::byte(bit7 << 7 | bit6 << 6 | bit5 << 5 | bit4 << 4 | bit3 << 3 | bit2 << 2 | bit1 << 1 | bit0);
-        }
-        auto operator<=>(const outputByte&) const = default;
-    };
-    outputByte currentOutput;
-    std::optional<outputByte> currentInput{};
-private:
-    outputByte oldOutput{currentOutput};
-public:
-    enum class State{
-        reset,
-        idle,
-        transferData
-    };
+namespace device
+{
+	class PCF8574 : esp::i2cDevice<config::PCFB574::Config, config::PCFB574::ADDRESS>
+	{
+	public:
+		PCF8574();
 
-    State st{State::reset};
-    using tp = std::chrono::time_point<std::chrono::system_clock>;
-    tp refreshTimePoint;
-    static constexpr auto refreshTime{std::chrono::milliseconds(200)};
+		void Init();
+		void PollTransferData();
 
+		union out_t
+		{
+			struct
+			{
+				util::byte bit0 : 1,
+					bit1 : 1,
+					bit2 : 1,
+					bit3 : 1,
+					bit4 : 1,
+					bit5 : 1,
+					bit6 : 1,
+					bit7 : 1;
+			};
+			util::byte value;
+		};
 
-    explicit PCF8574(){
-        fmt::print("PCF8574: Initializing...\n");
-        fmt::print("PCF8574: Done!\n");
-    }
+		util::byte Input() const;
+		out_t Output;
+	private:
+		using time_point = std::chrono::time_point<std::chrono::system_clock>;
 
-    void handler() {
-        switch(st){
-            case State::reset:
-            {
-                refreshTimePoint = std::chrono::system_clock::now() + refreshTime;
-                st = State::idle;
-            }
-            break;
-            case State::idle:
-            {
-                auto now = std::chrono::system_clock::now();
-                if(now > refreshTimePoint){
-                    st = State::transferData;
-                }
-            }
-                break;
-            case State::transferData:
-            {
-                std::array<uint8_t, 1> rxData;
-                this->read(std::byte{0x00}, rxData.size(), rxData.data());
-                outputByte tempByte{};
-                std::memcpy(&tempByte, &rxData[0], rxData.size());
-                currentInput = tempByte;
-                if(currentOutput != oldOutput){
-                    this->write(std::array{currentOutput.value()});
-                    oldOutput = currentOutput;
-                }
-                refreshTimePoint = std::chrono::system_clock::now() + refreshTime;
-                st = State::idle;
-            }
-                break;
-        }
-    }
-};
+		void TransferData();
+
+		static constexpr auto REFRESH_TIME = std::chrono::milliseconds(200);
+		
+		util::byte _currentInput;
+		util::byte _oldOutput;
+		time_point _refreshTimePoint;
+	};
+}

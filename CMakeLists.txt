@@ -9,6 +9,7 @@ set(EXTRA_COMPONENT_DIRS main)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(eduSignal)
 
+
 execute_process(COMMAND git submodule update --init -- external/fmt
                 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_subdirectory(external/fmt)
@@ -17,8 +18,15 @@ add_subdirectory(esp_util)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}.elf PRIVATE fmt::fmt-header-only esp_util::util)
 
-
 target_sources(${CMAKE_PROJECT_NAME}.elf PUBLIC
-    src/main.cpp
+src/main.cpp
+src/devices/ADS1299.cpp
+src/devices/BHI160.cpp
+src/devices/MAX30102.cpp
+src/devices/MCP3561.cpp
+src/devices/PCF8574.cpp
+src/devices/TSC2003.cpp
+src/tasks/sensor_control.cpp
+src/tasks/telemetry_transmitter.cpp
 )
 
