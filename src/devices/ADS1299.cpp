@@ -156,14 +156,16 @@ namespace device
 		  _noise{},
 		  _ecg{},
 		  _statusBits(0),
-		  _resetCounter(0)
+		  _resetCounter(0),
+		  _state(State::Reset)
 	{
 	}
 
 	void ADS1299::Init()
 	{
-		_state = State::Reset;
-		_buffer = mem::createStaticRingBuffer(_noise, &_mutexBuffer);
+		_state       = State::Reset;
+		_ecgBuffer   = mem::createStaticRingBuffer(_ecg, _mutexBuffer);
+		_noiseBuffer = mem::createStaticRingBuffer(_noise, _mutexBuffer + 1);
 		gpio_set_direction(config::ADS1299::RESET_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_DRDY_PIN, GPIO_MODE_INPUT);
@@ -174,28 +176,26 @@ namespace device
 	{
 		std::array<util::byte, 3 * config::ADS1299::CHANNEL_COUNT * 3> rxData{};
 		std::array<util::byte, 3 * config::ADS1299::CHANNEL_COUNT * 3> txData{0x00};
-		std::array<voltage_t, config::ADS1299::CHANNEL_COUNT> transformedData{};
+		ecg_t transformedData;
+		//std::array<voltage_t, config::ADS1299::CHANNEL_COUNT> transformedData{};
 		this->sendBlocking(txData, rxData);
 		for (std::size_t i{}; i < config::ADS1299::CHANNEL_COUNT; ++i)
 		{
 			util::byte toExtract[3];
 			std::memcpy(toExtract, &rxData[3 + i * 3], 3);
 			std::ranges::reverse(toExtract);
-			transformedData[i] = std::numeric_limits<voltage_t>::max();
-			std::memcpy(&transformedData[i], toExtract, 3);
+			transformedData.channel[i] = std::numeric_limits<voltage_t>::max();
+			std::memcpy(&transformedData.channel[i], toExtract, 3);
 			static constexpr auto bitsToTrash{0};
 			// transformedData[i] = transformedData[i] >> bitsToTrash;
-			transformedData[i] = transformedData[i] << 8;
-			transformedData[i] = transformedData[i] >> 8;
+			transformedData.channel[i] = transformedData.channel[i] << 8;
+			transformedData.channel[i] = transformedData.channel[i] >> 8;
 		}
 		std::int32_t tempStatusBits;
 		std::memcpy(&tempStatusBits, &rxData[0], 3);
 		_statusBits = tempStatusBits;
 
-		for(auto i = 0; i < transformedData.size(); i++)
-		{
-			mem::write(&_buffer, transformedData[i]);
-		}
+		mem::write(&_ecgBuffer, transformedData);
 		//std::memcpy(_ecg, transformedData.data(), std::size(transformedData) * sizeof(data_t));
 	}
 
@@ -203,19 +203,21 @@ namespace device
 	{
 		util::byte rxData[3 * config::ADS1299::CHANNEL_COUNT * 3]{};
 		util::byte txData[3 * config::ADS1299::CHANNEL_COUNT * 3]{0x00};
-		voltage_t transformedData[config::ADS1299::CHANNEL_COUNT]{};
+		noise_t transformedData;
+		//voltage_t transformedData[config::ADS1299::CHANNEL_COUNT]{};
 		this->sendBlocking(util::to_span(txData), rxData);
 		for (std::size_t channel = 0; channel < config::ADS1299::CHANNEL_COUNT; ++channel)
 		{
 			std::array<std::byte, 3> toExtract;
 			std::memcpy(&toExtract[0], &rxData[3 + channel * 3], 3);
 			std::ranges::reverse(toExtract);
-			std::memcpy(&transformedData[channel], &toExtract[0], 3);
+			std::memcpy(&transformedData.channel[channel], &toExtract[0], 3);
 		}
 		std::int32_t tempStatusBits;
 		std::memcpy(&tempStatusBits, &rxData[0], 3);
 		_statusBits = tempStatusBits;
-		std::memcpy(_noise, transformedData, std::size(transformedData) * sizeof(voltage_t));
+
+		mem::write(&_noiseBuffer, transformedData);
 	}
 
 	void ADS1299::Handler()
@@ -310,13 +312,22 @@ namespace device
 		return _state == State::Idle;
 	}
 
-	mem::ring_buffer_t ADS1299::RingBuffer() const
+	mem::ring_buffer_t ADS1299::ECGRingBuffer() const
 	{
-		if(!_buffer.buffer)
+		if(!_ecgBuffer.buffer)
 		{
 			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
 		}
-		return _buffer;
+		return _ecgBuffer;
+	}
+
+	mem::ring_buffer_t ADS1299::NoiseRingBuffer() const
+	{
+		if(!_noiseBuffer.buffer)
+		{
+			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
+		}
+		return _noiseBuffer;
 	}
 
 	void ADS1299::Reset()
@@ -340,7 +351,7 @@ namespace device
 		vTaskDelay(pdMS_TO_TICKS(1)); // Evil delay, but only necessary on power up, so it doesn't matter.
 		gpio_set_level(config::ADS1299::RESET_PIN, 1);
 		fmt::print("[ADS1299:] Power up complete\n");
-		vTaskDelay(pdMS_TO_TICKS(1));
+		vTaskDelay(pdMS_TO_TICKS(1)); // Evil delay, but only necessary on power up, so it doesn't matter.
 	}
 
 	void ADS1299::ConfigureExternalReference()

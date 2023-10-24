@@ -4,6 +4,7 @@
 #include "fmt/format.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "../config/devices.h"
 
 namespace sys
 {
@@ -20,6 +21,8 @@ namespace sys
 			*ringBufferInfoPtrPtr = nullptr; // Ready Signal
 		}
 
+
+
 		struct sample_t
 		{
 			uint32_t red;
@@ -32,15 +35,27 @@ namespace sys
 		};
 
 		using voltage_t = int32_t;
+		struct ecg_t
+		{
+			voltage_t channel[config::ADS1299::CHANNEL_COUNT] = {};
+		};
+
 
 		while(true)
 		{
-			auto sample     = mem::read<sample_t>(ringBuffers);
-			auto voltage    = mem::read<voltage_t>(ringBuffers + 1);
-			auto acceleration = mem::read<acceleration_t>(ringBuffers + 2);
-			fmt::print("Red = {}, Infrared = {}, Voltage = {} \n", sample.red, sample.infraRed, voltage);
+			//auto ecg = mem::read<ecg_t>(ringBuffers);
+			//fmt::print("Ch1 = {}, Ch2 = {}, Ch3 = {}\n", ecg.channel[0], ecg.channel[1], ecg.channel[2]);
+
+			//auto sample     = mem::read<sample_t>(ringBuffers);
+			//fmt::print("Red = {}, Infrared = {}\n", sample.red, sample.infraRed);
+
+			auto acceleration = mem::read<acceleration_t>(ringBuffers);
 			fmt::print("X = {}, Y = {}, Z = {}, status = {} \n", acceleration.X, acceleration.Y, acceleration.Z, acceleration.status);
-			vTaskDelay(pdMS_TO_TICKS(1000));
+
+			//auto voltage    = mem::read<voltage_t>(ringBuffers + 1);
+			//fmt::print("Red = {}, Infrared = {}, Voltage = {} \n", sample.red, sample.infraRed, voltage);
+			//fmt::print("X = {}, Y = {}, Z = {}, status = {} \n", acceleration.X, acceleration.Y, acceleration.Z, acceleration.status);
+			vTaskDelay(pdMS_TO_TICKS(100));
 		}
 	}
 }

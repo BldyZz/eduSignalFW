@@ -23,7 +23,6 @@ namespace device
 		void Init();
 
 
-		std::int16_t Temperature() const;
 	private:
 		void Handler();
 

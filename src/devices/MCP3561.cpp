@@ -66,8 +66,18 @@ namespace device
 
 	void MCP3561::Init()
 	{
+		_buffer = mem::createStaticRingBuffer(_output, &_mutexBuffer);
 		gpio_set_direction(config::MCP3561::IRQ_PIN, GPIO_MODE_INPUT);
 		fmt::print("[MCP3561:] Initialization complete.\n");
+	}
+
+	mem::ring_buffer_t MCP3561::RingBuffer() const
+	{
+		if(!_buffer.buffer)
+		{
+			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
+		}
+		return _buffer;
 	}
 
 	void MCP3561::Reset()
@@ -157,7 +167,7 @@ namespace device
 		//transformedData = transformedData << 8;
 		transformedData = transformedData >> 8;
 		//fmt::print("{} {:#010b}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(rxData, ", "));
-		_output = transformedData;
+		mem::write(&_buffer, transformedData);
 	}
 
 	void MCP3561::Handler()

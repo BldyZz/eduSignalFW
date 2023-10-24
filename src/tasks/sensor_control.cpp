@@ -2,12 +2,12 @@
 #include "esp_util/spiHost.hpp"
 
 #include "../memory/ring_buffer.h"
-#include "../devices/ADS1299.h"
-#include "../devices/MAX30102.h"
-#include "../devices/BHI160.h"
-#include "../devices/MCP3561.h"
-#include "../devices/PCF8574.h"
-#include "../devices/TSC2003.h"
+#include "../devices/ADS1299.hpp"
+#include "../devices/MAX30102.hpp"
+#include "../devices/BHI160.hpp"
+#include "../devices/MCP3561.hpp"
+#include "../devices/PCF8574.hpp"
+#include "../devices/TSC2003.hpp"
 
 #include "sensor_control.h"
 
@@ -25,28 +25,29 @@ namespace sys
 
 		// Create and initialize Sensors
 		device::MAX30102 pulseOxiMeter;
-		device::ADS1299  ads(boardSPI);
+		device::ADS1299  ecg(boardSPI);
 		device::BHI160   imu;
 		device::PCF8574  ioExpander;
 		device::MCP3561  adc(boardSPI);
 		device::TSC2003  touchScreenController;
 
 		pulseOxiMeter.Init();
-		ads.Init();
+		ecg.Init();
 		imu.Init();
 		ioExpander.Init();
 		adc.Init();
 		touchScreenController.Init();
 
-		while(!ads.IsReady()) ads.Handler();
+		while(!ecg.IsReady()) ecg.Handler();
 		while(!imu.IsReady()) imu.Handler();
 		while(!pulseOxiMeter.IsReady()) pulseOxiMeter.Handler();
 
 		// ReSharper disable once CppTooWideScope
 		mem::ring_buffer_t sensor_buffers[] =
 		{
-			pulseOxiMeter.RingBuffer(),
-			ads.RingBuffer(),
+			//adc.RingBuffer(),
+			//pulseOxiMeter.RingBuffer(),
+			//ads.ECGRingBuffer(),
 			imu.RingBuffer(),
 		};
 
@@ -62,14 +63,16 @@ namespace sys
 		// Start Measuring
 		while(true)
 		{
-			do
-			{
-				ads.Handler();
-			} while(!ads.IsReady());
-			do
-			{
-				pulseOxiMeter.Handler();
-			} while(!pulseOxiMeter.IsReady());
+			//do
+			//{
+			//	ads.Handler();
+			//} while(!ads.IsReady());
+
+			//do
+			//{
+			//	pulseOxiMeter.Handler();
+			//} while(!pulseOxiMeter.IsReady());
+
 			do
 			{
 				imu.Handler();

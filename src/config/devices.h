@@ -16,14 +16,16 @@ namespace config
 	{
 		using Config = BoardSPIConfig;
 
-		static constexpr size_t		CLOCK_SPEED                = 1 * 100 * 1000;
-		static constexpr size_t     CHANNEL_COUNT              = 4;
-		static constexpr size_t		SPI_MAX_TRANSACTION_LENGTH = 20; // Maximum length of one spi transaction in bytes.
-		static constexpr gpio_num_t CS_PIN                     = GPIO_NUM_5; // Chip select
-		static constexpr gpio_num_t RESET_PIN                  = GPIO_NUM_4; // System reset
-		static constexpr gpio_num_t N_PDWN_PIN                 = GPIO_NUM_0; // Power-down - Active low
-		static constexpr gpio_num_t N_DRDY_PIN                 = GPIO_NUM_36; // Data Ready Pin - Active low
-		static constexpr uint8_t    SPI_MODE                   = 0x01;
+		static constexpr size_t		CLOCK_SPEED                 = 1 * 100 * 1000;
+		static constexpr size_t     CHANNEL_COUNT               = 4;
+		static constexpr size_t     ECG_SAMPLES_IN_RINGBUFFER   = 10;
+		static constexpr size_t     NOISE_SAMPLES_IN_RINGBUFFER = 10;
+		static constexpr size_t		SPI_MAX_TRANSACTION_LENGTH  = 20; // Maximum length of one spi transaction in bytes.
+		static constexpr gpio_num_t CS_PIN                      = GPIO_NUM_5; // Chip select
+		static constexpr gpio_num_t RESET_PIN                   = GPIO_NUM_4; // System reset
+		static constexpr gpio_num_t N_PDWN_PIN                  = GPIO_NUM_0; // Power-down - Active low
+		static constexpr gpio_num_t N_DRDY_PIN                  = GPIO_NUM_36; // Data Ready Pin - Active low
+		static constexpr uint8_t    SPI_MODE                    = 0x01;
 		
 	};
 	// TSC2003

@@ -23,11 +23,19 @@ namespace device
 		void Handler();
 		bool IsReady() const;
 
-		mem::ring_buffer_t RingBuffer() const;
+		mem::ring_buffer_t ECGRingBuffer() const;
+		mem::ring_buffer_t NoiseRingBuffer() const;
 
 	private:
 
 		using voltage_t = int32_t;
+
+		struct ecg_t
+		{
+			voltage_t channel[config::ADS1299::CHANNEL_COUNT] = {};
+		};
+
+		using noise_t = ecg_t;
 
 		enum class State : util::byte;
 		struct Command;
@@ -62,12 +70,13 @@ namespace device
 		void SetCustomSettings();
 
 		State              _state;
-		voltage_t          _noise[config::ADS1299::CHANNEL_COUNT]{}; // Noise data
-		voltage_t          _ecg[config::ADS1299::CHANNEL_COUNT]{};   // Electrocardiography data
-		uint32_t           _statusBits{};
-		size_t             _resetCounter{};
-		mem::ring_buffer_t _buffer;
-		StaticSemaphore_t  _mutexBuffer;
+		noise_t            _noise[config::ADS1299::NOISE_SAMPLES_IN_RINGBUFFER]; // Noise data 
+		ecg_t              _ecg[config::ADS1299::ECG_SAMPLES_IN_RINGBUFFER];     // Electrocardiography data
+		uint32_t           _statusBits;
+		size_t             _resetCounter;
+		mem::ring_buffer_t _ecgBuffer;
+		mem::ring_buffer_t _noiseBuffer;
+		StaticSemaphore_t  _mutexBuffer[2];
 	};
 
 	constexpr util::byte ADS1299::RREG(util::byte registerAddress)

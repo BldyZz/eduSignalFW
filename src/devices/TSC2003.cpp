@@ -79,10 +79,5 @@ namespace device
 			break;
 		}
 	}
-
-	std::int16_t TSC2003::Temperature() const
-	{
-		return _temperature;
-	}
 }
 
