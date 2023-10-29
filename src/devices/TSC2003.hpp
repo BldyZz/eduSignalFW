@@ -3,7 +3,6 @@
 // std
 #include <chrono>
 // internal
-#include "../i2cConfig.hpp"
 #include "../util/types.h"
 #include "../config/devices.h"
 // external

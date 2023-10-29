@@ -20,7 +20,7 @@ namespace sys
 		// Create SPI, I2C Interfaces
 		esp::spiHost<config::ADS1299::Config> boardSPI;
 		fmt::print("[SensorControlTask:] Initialized SPI.\n");
-		esp::i2cMaster<I2C0_Config> boardI2C;
+		esp::i2cMaster<config::I2C0_Config> boardI2C;
 		fmt::print("[SensorControlTask:] Initialized I2C.\n");
 
 		// Create and initialize Sensors

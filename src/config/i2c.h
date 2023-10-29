@@ -7,7 +7,6 @@
 
 namespace config
 {
-
 	struct I2C0_Config
 	{
 		static constexpr auto SCLPin{GPIO_NUM_22};
