@@ -6,8 +6,7 @@
 #include <fmt/format.h>
 #include <netdb.h>
 
-#define OUT
-#define IN
+#include "../util/defines.h"
 
 namespace net
 {

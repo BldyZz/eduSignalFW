@@ -60,23 +60,9 @@ namespace sys
 		// Start Measuring
 		while(true)
 		{
-			do
-			{
-				pulseOxiMeter.Handler();
-			}
-			while(!pulseOxiMeter.IsReady());
-
-			do
-			{
-				ecg.Handler();
-			}
-			while(!ecg.IsReady());
-			
-			do
-			{
-				imu.Handler();
-			}
-			while(!imu.IsReady());
+			pulseOxiMeter.Handler();
+			ecg.Handler();
+			imu.Handler();
 
 			//vTaskDelay(pdMS_TO_TICKS(1000));
 		}

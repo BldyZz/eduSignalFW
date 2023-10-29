@@ -1,6 +1,6 @@
 #pragma once
 
-#define WRITE_ONLY // The Function should only write to this
+#include "../util/defines.h"
 
 namespace mem
 {

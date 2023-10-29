@@ -14,8 +14,9 @@
 #include <esp_netif.h>
 #include <fmt/format.h>
 
+#include "../util/defines.h"
+
 static constexpr uint32_t IS_CONNECTED_SIGNAL = BIT0;
-#define DISCARD (void)
 
 namespace net
 {

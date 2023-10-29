@@ -6,9 +6,7 @@
 #include <type_traits>
 #include <span>
 // internal
-
-#define NAME(x) #x
-#define BYTES_TO_BITS(x) ((x) * 8)
+#include "../util/defines.h"
 
 namespace util
 {
@@ -84,23 +82,23 @@ namespace util
 		} else if constexpr(sizeof(T) == 2)
 		{
 			return (value & 0x00FF) << BYTES_TO_BITS(1) | 
-				value >> BYTES_TO_BITS(1);
+				    value			>> BYTES_TO_BITS(1);
 		} else if constexpr(sizeof(T) == 4)
 		{
-			return (value & 0xFF) << BYTES_TO_BITS(3) | 
-				(value & 0xFF'00) << BYTES_TO_BITS(1) | 
+			return (value & 0xFF)	 << BYTES_TO_BITS(3) | 
+				(value & 0xFF'00)	 << BYTES_TO_BITS(1) | 
 				(value & 0xFF'00'00) >> BYTES_TO_BITS(1) | 
-				value >> BYTES_TO_BITS(3);
+				value				 >> BYTES_TO_BITS(3);
 		} else if constexpr(sizeof(T) == 8)
 		{
-			return (value & 0xFF) << BYTES_TO_BITS(7) |
-				(value & 0xFF'00) << BYTES_TO_BITS(5) |
-				(value & 0xFF'00'00) << BYTES_TO_BITS(3) |
-				(value & 0xFF'00'00'00) << BYTES_TO_BITS(1) |
-				(value & 0xFF'00'00'00'00) >> BYTES_TO_BITS(1) |
-				(value & 0xFF'00'00'00'00'00) >> BYTES_TO_BITS(3) |
+			return (value & 0xFF)				 << BYTES_TO_BITS(7) |
+				(value & 0xFF'00)				 << BYTES_TO_BITS(5) |
+				(value & 0xFF'00'00)			 << BYTES_TO_BITS(3) |
+				(value & 0xFF'00'00'00)			 << BYTES_TO_BITS(1) |
+				(value & 0xFF'00'00'00'00)		 >> BYTES_TO_BITS(1) |
+				(value & 0xFF'00'00'00'00'00)	 >> BYTES_TO_BITS(3) |
 				(value & 0xFF'00'00'00'00'00'00) >> BYTES_TO_BITS(5) |
-				value >> BYTES_TO_BITS(7);
+				value							 >> BYTES_TO_BITS(7);
 		} else
 		{
 			static_assert(always_false_v<T>, "Can't swap bytes. Size of type is unequal to 1, 2, 4 or 8 Bytes.");

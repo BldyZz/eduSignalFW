@@ -126,25 +126,6 @@ namespace device
 		_numberOfSamples--;
 	}
 
-	void MAX30102::PollFIFO()
-	{
-		//TODO: Get Read and Write Pointer and calculate available Samples
-		std::uint8_t ReadPointer  = 0;
-		std::uint8_t WritePointer = 0;
-		this->read(Register::FiFoRead, 1, &ReadPointer);
-		this->read(Register::FiFoWrite, 1, &WritePointer);
-		//printf("RP                = %x, WP = %x\n", ReadPointer, WritePointer);
-		if(ReadPointer != WritePointer)
-		{
-			_numberOfSamples = WritePointer - ReadPointer;
-			if(_numberOfSamples < 0)
-			{
-				_numberOfSamples += 32;
-			}
-			_state = State::ReadData;
-		}
-	}
-
 	void MAX30102::Handler()
 	{
 		switch(_state)
@@ -160,13 +141,26 @@ namespace device
 			fmt::print("[MAX30102:] Configuration successful.\n");
 			break;
 		case State::Idle:
-			PollFIFO();
-			break;
+			{
+				std::uint8_t ReadPointer  = 0, WritePointer = 0;
+				this->read(Register::FiFoRead, 1, &ReadPointer);
+				this->read(Register::FiFoWrite, 1, &WritePointer);
+
+				if(ReadPointer == WritePointer) break;
+
+				_numberOfSamples = WritePointer - ReadPointer;
+
+				if(_numberOfSamples < 0)
+				{
+					_numberOfSamples += 32;
+				}
+				_state = State::ReadData;
+			}
+			nobreak;
 		case State::ReadData:
 			ReadData();
 			if(_numberOfSamples == 0)
 			{
-				//printf("IDLE\n");
 				_state = State::Idle;
 			}
 			break;

@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h" // std
 // intern
 #include "../util/utils.h"
+#include "../util/defines.h"
 
 #include <array>
 #include <algorithm>
@@ -290,11 +291,12 @@ namespace device
 			_state = State::Idle;
 			break;
 		case State::Idle:
-			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0)
+			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 1)
 			{
-				_state = State::CaptureData;
+				break;
 			}
-			break;
+			_state = State::CaptureData;
+			nobreak;
 		case State::CaptureData:
 			CaptureData();
 			_state = State::Idle;

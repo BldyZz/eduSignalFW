@@ -1,10 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
-#define NODISCARD [[nodiscard]]
-#define CHECKVAL // Return value is not necessarily valid.
+#include "../util/defines.h"
 
 namespace net
 {

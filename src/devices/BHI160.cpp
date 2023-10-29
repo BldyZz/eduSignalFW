@@ -343,16 +343,15 @@ namespace device
 			break;
 
 		case State::Idle:
-			if(gpio_get_level(config::BHI160::INTERRUPT_PIN) != 0)
-			{
-				GetRemainingFIFOSize();
+			if(gpio_get_level(config::BHI160::INTERRUPT_PIN) == 0) 
+				break;
 
-				if(_bytesInFIFO > 0)
-				{
-					_state = State::GetData;
-				}
-			}
-			break;
+			GetRemainingFIFOSize();
+
+			if(_bytesInFIFO == 0)
+				break;
+			_state = State::GetData;
+			nobreak;
 
 		case State::GetData:
 			GetData();

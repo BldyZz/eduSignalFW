@@ -40,7 +40,6 @@ namespace device
 		void Reset();
 		void Configure();
 		void ReadData();
-		void PollFIFO();
 
 		sample_t           _underlyingBuffer[config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
 		mem::ring_buffer_t _buffer;
