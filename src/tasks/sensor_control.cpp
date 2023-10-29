@@ -37,46 +37,48 @@ namespace sys
 		ioExpander.Init();
 		adc.Init();
 		touchScreenController.Init();
-
-		while(!ecg.IsReady()) ecg.Handler();
-		while(!imu.IsReady()) imu.Handler();
+		
 		while(!pulseOxiMeter.IsReady()) pulseOxiMeter.Handler();
 
 		// ReSharper disable once CppTooWideScope
-		mem::ring_buffer_t sensor_buffers[] =
+		mem::ring_buffer_t* sensor_buffers[] =
 		{
-			//adc.RingBuffer(),
-			//pulseOxiMeter.RingBuffer(),
-			//ads.ECGRingBuffer(),
+			pulseOxiMeter.RingBuffer(),
+			ecg.ECGRingBuffer(),
 			imu.RingBuffer(),
+			//adc.RingBuffer(),
 		};
 
 		// Pass back ring buffer. 
 		{
-			mem::ring_buffer_t** ringBufferInfoPtrPtr = static_cast<mem::ring_buffer_t**>(args);
+			mem::ring_buffer_t*** ringBufferInfoPtrPtr = static_cast<mem::ring_buffer_t***>(args);
 			*ringBufferInfoPtrPtr = sensor_buffers;
-			ringBufferInfoPtrPtr++;
-			size_t* numberOfRingBuffers = reinterpret_cast<size_t*>(ringBufferInfoPtrPtr);
+			size_t* numberOfRingBuffers = reinterpret_cast<size_t*>(ringBufferInfoPtrPtr + 1);
 			*numberOfRingBuffers = std::size(sensor_buffers);
 		}
 
 		// Start Measuring
 		while(true)
 		{
-			//do
-			//{
-			//	ads.Handler();
-			//} while(!ads.IsReady());
-
-			//do
-			//{
-			//	pulseOxiMeter.Handler();
-			//} while(!pulseOxiMeter.IsReady());
+			do
+			{
+				pulseOxiMeter.Handler();
+			}
+			while(!pulseOxiMeter.IsReady());
 
 			do
 			{
+				ecg.Handler();
+			}
+			while(!ecg.IsReady());
+			
+			do
+			{
 				imu.Handler();
-			} while(!imu.IsReady());
+			}
+			while(!imu.IsReady());
+
+			//vTaskDelay(pdMS_TO_TICKS(1000));
 		}
 	}
 }

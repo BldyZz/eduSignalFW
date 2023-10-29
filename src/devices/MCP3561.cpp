@@ -71,13 +71,13 @@ namespace device
 		fmt::print("[MCP3561:] Initialization complete.\n");
 	}
 
-	mem::ring_buffer_t MCP3561::RingBuffer() const
+	mem::ring_buffer_t* MCP3561::RingBuffer()
 	{
 		if(!_buffer.buffer)
 		{
 			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
 		}
-		return _buffer;
+		return &_buffer;
 	}
 
 	void MCP3561::Reset()

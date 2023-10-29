@@ -8,26 +8,26 @@ namespace device
 	{
 		enum : util::byte
 		{
-			InterruptStatus1 = 0x00,
-			InterruptStatus2 = 0x01,
-			InterruptEnable1 = 0x02,
-			InterruptEnable2 = 0x03,
-			FiFoWrite = 0x04,
-			OverflowCounter = 0x05,
-			FiFoRead = 0x06,
-			FiFoDataRegister = 0x07,
-			FiFoConfig = 0x08,
-			ModeConfig = 0x09,
-			SPO2Config = 0x0A,
+			InterruptStatus1   = 0x00,
+			InterruptStatus2   = 0x01,
+			InterruptEnable1   = 0x02,
+			InterruptEnable2   = 0x03,
+			FiFoWrite          = 0x04,
+			OverflowCounter    = 0x05,
+			FiFoRead           = 0x06,
+			FiFoDataRegister   = 0x07,
+			FiFoConfig         = 0x08,
+			ModeConfig         = 0x09,
+			SPO2Config         = 0x0A,
 			LED1PulseAmplitude = 0x0C,
 			LED2PulseAmplitude = 0x0D,
-			LEDMode1 = 0x11,
-			LEDMode2 = 0x12,
-			DieTempInteger = 0x1F,
-			DieTempFraction = 0x20,
-			DieTempConfig = 0x21,
-			RevisionID = 0xFE,
-			PartID = 0xFF,
+			LEDMode1           = 0x11,
+			LEDMode2           = 0x12,
+			DieTempInteger     = 0x1F,
+			DieTempFraction    = 0x20,
+			DieTempConfig      = 0x21,
+			RevisionID         = 0xFE,
+			PartID             = 0xFF,
 		};
 	};
 
@@ -37,7 +37,6 @@ namespace device
 		Init,
 		Idle,
 		ReadData,
-		ChangeConfig
 	};
 
 	struct MAX30102::Command
@@ -60,23 +59,23 @@ namespace device
 
 	}
 
-	mem::ring_buffer_t MAX30102::RingBuffer() const
+	mem::ring_buffer_t* MAX30102::RingBuffer() 
 	{
 		if(!_buffer.buffer)
 		{
 			fmt::print("[MAX30102:] Ring buffer was not initialized!\n");
 		}
-		return _buffer;
+		return &_buffer;
 	}
 
 	bool MAX30102::IsReady() const
 	{
-		return _state == State::Idle;
+		return util::to_underlying(_state) >= util::to_underlying(State::Idle);
 	}
 
 	void MAX30102::Reset()
 	{
-		static constexpr util::byte resetPackage[] = {Register::ModeConfig, Command::Reset};
+		static constexpr util::byte resetPackage[] = {Command::Reset};
 		this->write(util::to_span(resetPackage));
 	}
 
@@ -94,7 +93,7 @@ namespace device
 		this->write(util::to_span(spo2Package));
 
 		static constexpr util::byte sampleAverage = 0b001;
-		static constexpr util::byte fifoRolloverEnable = 0b0;
+		static constexpr util::byte fifoRolloverEnable = 0b1; /// @NOTE: Disabling the rollover makes the read and write pointer stop at 6
 		static constexpr util::byte fifoAFull = 0b0000;
 		static constexpr util::byte fifoConfigData = sampleAverage << 5 | fifoRolloverEnable << 4 | fifoAFull;
 		static constexpr util::byte fifoPackage[] = {Register::FiFoConfig, fifoConfigData};
@@ -122,6 +121,7 @@ namespace device
 		tempInfraRed &= 0x3FFFF;
 
 		mem::write(&_buffer, sample_t{.red = tempRed, .infraRed = tempInfraRed});
+		//printf("tr = %lu, tir = %lu\n", tempRed, tempInfraRed);
 
 		_numberOfSamples--;
 	}
@@ -129,10 +129,11 @@ namespace device
 	void MAX30102::PollFIFO()
 	{
 		//TODO: Get Read and Write Pointer and calculate available Samples
-		std::uint8_t ReadPointer;
-		std::uint8_t WritePointer;
+		std::uint8_t ReadPointer  = 0;
+		std::uint8_t WritePointer = 0;
 		this->read(Register::FiFoRead, 1, &ReadPointer);
 		this->read(Register::FiFoWrite, 1, &WritePointer);
+		//printf("RP                = %x, WP = %x\n", ReadPointer, WritePointer);
 		if(ReadPointer != WritePointer)
 		{
 			_numberOfSamples = WritePointer - ReadPointer;
@@ -163,11 +164,11 @@ namespace device
 			break;
 		case State::ReadData:
 			ReadData();
-			_state = State::ChangeConfig;
-			break;
-		case State::ChangeConfig:
-			//TODO: Update configuration of the sensor while measuring...
-			_state = _numberOfSamples > 0 ? State::ReadData : State::Idle;
+			if(_numberOfSamples == 0)
+			{
+				//printf("IDLE\n");
+				_state = State::Idle;
+			}
 			break;
 		}
 	}

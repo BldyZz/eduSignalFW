@@ -2,6 +2,19 @@
  *	This file contains all configurations of the devices used in this project.
  */
 
+/** Overview
+*+----------+----------------------------------------------------+-----------------+
+*|  Device  |                        Type                        | Connection Type |
+*+----------+----------------------------------------------------+-----------------+
+*| ADS1299  | ADC for EEG and biopotential measurement           | SPI             |
+*| TSC2003  | Touch Screen Controller                            | I2C             |
+*| BHI160   | IMU                                                | I2C             |
+*| MAX30102 | Heart Rate Pulse Blood Oxygen Concentration Sensor | I2C             |
+*| MCP3561  | Two/Four/Eight-Channel ADC                         | SPI             |
+*| PCF8574  | IO-Expander                                        | I2C             |
+*+----------+----------------------------------------------------+-----------------+
+*/
+
 #pragma once
 
 #include "i2c.h"
@@ -9,9 +22,9 @@
 
 using address_t = std::uint8_t;
 
+
 namespace config
 {
-	// ADS1299
 	struct ADS1299
 	{
 		using Config = BoardSPIConfig;
@@ -28,7 +41,7 @@ namespace config
 		static constexpr uint8_t    SPI_MODE                    = 0x01;
 		
 	};
-	// TSC2003
+
 	struct TSC2003
 	{
 		using Config = I2C0_Config;
@@ -36,7 +49,7 @@ namespace config
 		static constexpr address_t  ADDRESS  = 0x48;
 		static constexpr gpio_num_t NIRQ_PIN = GPIO_NUM_2;
 	};
-	// BHI160
+
 	struct BHI160
 	{
 		using Config = I2C0_Config;
@@ -44,7 +57,7 @@ namespace config
 		static constexpr gpio_num_t INTERRUPT_PIN  = GPIO_NUM_39;
 		static constexpr address_t  ADDRESS        = 0x28;
 	};
-	// MAX30102
+
 	struct MAX30102
 	{
 		using Config = I2C0_Config;
@@ -52,7 +65,7 @@ namespace config
 		static constexpr address_t ADDRESS                = 0x57;
 		static constexpr size_t    SAMPLES_IN_RING_BUFFER = 100;
 	};
-	// MCP3561
+
 	struct MCP3561
 	{
 		using Config = BoardSPIConfig;
@@ -64,7 +77,7 @@ namespace config
 		static constexpr gpio_num_t IRQ_PIN                    = GPIO_NUM_34;
 		static constexpr uint8_t    SPI_MODE                   = 0x00; 
 	};
-	// PCFB574
+
 	struct PCFB574
 	{
 		using Config = I2C0_Config;

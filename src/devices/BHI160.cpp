@@ -80,6 +80,10 @@ namespace device
 		_buffer = mem::createStaticRingBuffer(_acceleration, &_mutexBuffer);
 		fmt::print("[BHI160:] Initialization successful.\n");
 		gpio_set_direction(config::BHI160::INTERRUPT_PIN, GPIO_MODE_INPUT);
+		while(!IsReady())
+		{
+			Handler();
+		}
 	}
 
 	void BHI160::HandleData(std::span<util::byte> package)
@@ -358,15 +362,15 @@ namespace device
 
 	bool BHI160::IsReady() const
 	{
-		return _state == State::Idle;
+		return _state >= State::Idle;
 	}
 
-	mem::ring_buffer_t BHI160::RingBuffer() const
+	mem::ring_buffer_t* BHI160::RingBuffer()
 	{
 		if(!_buffer.buffer)
 		{
 			fmt::print("[BHI160:] Ring buffer was not initialized!\n");
 		}
-		return _buffer;
+		return &_buffer;
 	}
 }

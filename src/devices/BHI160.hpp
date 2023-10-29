@@ -18,10 +18,10 @@ namespace device
 	public:
 		BHI160();
 
-		void               Init();
-		void               Handler();
-		bool               IsReady() const;
-		mem::ring_buffer_t RingBuffer() const;
+		void                Init();
+		void                Handler();
+		bool                IsReady() const;
+		mem::ring_buffer_t* RingBuffer();
 	private:
 
 		enum class State : util::byte;
@@ -47,10 +47,10 @@ namespace device
 
 		acceleration_t _acceleration[10];
 
-		util::timestamp_t _timestamp;
-		std::uint16_t _bytesInFIFO;
-		State _state;
-		StaticSemaphore_t  _mutexBuffer;
+		util::timestamp_t  _timestamp;
+		std::uint16_t      _bytesInFIFO;
+		State              _state;
+		StaticSemaphore_t  _mutexBuffer{};
 		mem::ring_buffer_t _buffer;
 	};
 }

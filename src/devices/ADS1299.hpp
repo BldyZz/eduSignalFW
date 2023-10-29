@@ -23,8 +23,8 @@ namespace device
 		void Handler();
 		bool IsReady() const;
 
-		mem::ring_buffer_t ECGRingBuffer() const;
-		mem::ring_buffer_t NoiseRingBuffer() const;
+		mem::ring_buffer_t* ECGRingBuffer();
+		mem::ring_buffer_t* NoiseRingBuffer();
 
 	private:
 

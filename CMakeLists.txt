@@ -19,14 +19,16 @@ add_subdirectory(esp_util)
 target_link_libraries(${CMAKE_PROJECT_NAME}.elf PRIVATE fmt::fmt-header-only esp_util::util)
 
 target_sources(${CMAKE_PROJECT_NAME}.elf PUBLIC
-src/main.cpp
-src/devices/ADS1299.cpp
-src/devices/BHI160.cpp
-src/devices/MAX30102.cpp
-src/devices/MCP3561.cpp
-src/devices/PCF8574.cpp
-src/devices/TSC2003.cpp
-src/tasks/sensor_control.cpp
-src/tasks/telemetry_transmitter.cpp
+    src/main.cpp
+    src/devices/ADS1299.cpp
+    src/devices/BHI160.cpp
+    src/devices/MAX30102.cpp
+    src/devices/MCP3561.cpp
+    src/devices/PCF8574.cpp
+    src/devices/TSC2003.cpp
+    src/tasks/sensor_control.cpp
+    src/tasks/telemetry_transmitter.cpp
+    src/network/wifi.cpp
+    src/network/sockets.cpp
 )
 

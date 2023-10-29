@@ -4,6 +4,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "fmt/format.h"
 
 namespace mem
 {
@@ -19,7 +20,13 @@ namespace mem
 
 	inline bool hasData(const ring_buffer_t* ringBuffer)
 	{
-		return ringBuffer->head != ringBuffer->tail;
+		const bool ret = ringBuffer->tail != ringBuffer->head;
+		return ret;
+	}
+
+	inline size_t size(const ring_buffer_t* ringBuffer)
+	{
+		return (ringBuffer->tail - ringBuffer->head) & (ringBuffer->node_count - 1);
 	}
 
 	template<typename NodeStructure>

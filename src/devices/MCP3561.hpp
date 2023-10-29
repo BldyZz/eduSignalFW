@@ -20,7 +20,7 @@ namespace device
 
 		void Init();
 		void Handler();
-		mem::ring_buffer_t RingBuffer() const;
+		mem::ring_buffer_t* RingBuffer();
 	private:
 		using tp = std::chrono::time_point<std::chrono::system_clock>;
 		enum class State : util::byte;

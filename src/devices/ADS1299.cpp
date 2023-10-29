@@ -169,6 +169,11 @@ namespace device
 		gpio_set_direction(config::ADS1299::RESET_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_DRDY_PIN, GPIO_MODE_INPUT);
+
+		while(!IsReady())
+		{
+			Handler();
+		}
 		fmt::print("[ADS1299:] Initialization successful.\n");
 	}
 
@@ -312,22 +317,22 @@ namespace device
 		return _state == State::Idle;
 	}
 
-	mem::ring_buffer_t ADS1299::ECGRingBuffer() const
+	mem::ring_buffer_t* ADS1299::ECGRingBuffer()
 	{
 		if(!_ecgBuffer.buffer)
 		{
 			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
 		}
-		return _ecgBuffer;
+		return &_ecgBuffer;
 	}
 
-	mem::ring_buffer_t ADS1299::NoiseRingBuffer() const
+	mem::ring_buffer_t* ADS1299::NoiseRingBuffer() 
 	{
 		if(!_noiseBuffer.buffer)
 		{
 			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
 		}
-		return _noiseBuffer;
+		return &_noiseBuffer;
 	}
 
 	void ADS1299::Reset()

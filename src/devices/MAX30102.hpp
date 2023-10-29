@@ -22,7 +22,7 @@ namespace device
 		MAX30102();
 
 		void Init();
-		mem::ring_buffer_t RingBuffer() const;
+		mem::ring_buffer_t* RingBuffer();
 
 		bool IsReady() const;
 		void Handler();
@@ -42,10 +42,10 @@ namespace device
 		void ReadData();
 		void PollFIFO();
 
-		sample_t _underlyingBuffer[config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _bufferInstead
+		sample_t           _underlyingBuffer[config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
 		mem::ring_buffer_t _buffer;
-		int32_t   _numberOfSamples;
-		StaticSemaphore_t _mutexBuffer{};
+		int32_t            _numberOfSamples;
+		StaticSemaphore_t  _mutexBuffer{};
 		State _state;
 	};
 }
