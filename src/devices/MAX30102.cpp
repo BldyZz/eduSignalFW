@@ -1,6 +1,14 @@
 #include "MAX30102.hpp"
 
 #include "../util/utils.h"
+#include "../util/time.h"
+
+#include <cstdio>
+#include <algorithm>
+#include <cstring>
+
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 namespace device
 {
@@ -48,22 +56,21 @@ namespace device
 	};
 
 	MAX30102::MAX30102()
-		: _state(State::Reset), _numberOfSamples(0), _underlyingBuffer{}
+		:  _underlyingBuffer{}, _buffer(), _numberOfSamples(0), _mutexBuffer(), _state(State::Reset)
 	{
 	}
 
 	void MAX30102::Init()
 	{
-		_buffer = mem::createStaticRingBuffer(_underlyingBuffer, &_mutexBuffer);
-		fmt::print("[MAX30102:] Initialization successful.\n");
-
+		_buffer = mem::RingBuffer(&_mutexBuffer, _underlyingBuffer, config::MAX30102::ID, 2);
+		PRINTI("[MAX30102:]", "Initialization successful.\n");
 	}
 
-	mem::ring_buffer_t* MAX30102::RingBuffer() 
+	mem::RingBuffer* MAX30102::RingBuffer()
 	{
-		if(!_buffer.buffer)
+		if(!_buffer.IsValid())
 		{
-			fmt::print("[MAX30102:] Ring buffer was not initialized!\n");
+			PRINTI("[MAX30102:]", "Ring buffer was not initialized!\n");
 		}
 		return &_buffer;
 	}
@@ -108,19 +115,30 @@ namespace device
 
 	void MAX30102::ReadData()
 	{
-		util::byte rxData[6];
-		this->read(Register::FiFoDataRegister, util::total_size(rxData), rxData);
+		std::array<util::byte, 6> rxData;
+		//util::byte rxData[6];
+		this->read(Register::FiFoDataRegister, util::total_size(rxData), rxData.data());
 		std::reverse(std::begin(rxData), std::end(rxData));
 
-		std::uint32_t tempRed = 0;
-		std::memcpy(&tempRed, &rxData[3], 3);
-		tempRed &= 0x3FFFF;
+		auto it = rxData.begin();
 
-		std::uint32_t tempInfraRed = 0;
-		std::memcpy(&tempInfraRed, &rxData[0], 3);
-		tempInfraRed &= 0x3FFFF;
+		mem::uint24_t tempRed;
+		std::reverse_copy(it, it + sizeof(mem::uint24_t), &tempRed);
+		tempRed.u_ms_8 &= 0x03;
+		it += sizeof(mem::uint24_t);
 
-		mem::write(&_buffer, sample_t{.red = tempRed, .infraRed = tempInfraRed});
+		mem::uint24_t tempInfraRed;
+		std::reverse_copy(it, it + sizeof(mem::uint24_t), &tempInfraRed);
+		tempInfraRed.u_ms_8 &= 0x03;
+
+		_buffer.Lock();
+		auto data = static_cast<mem::uint24_t*>(_buffer.WriteAdvance());
+		*data = tempRed;
+		data = static_cast<mem::uint24_t*>(_buffer.ChangeChannel(data, 1));
+		*data = tempInfraRed;
+		_buffer.Unlock();
+
+		//_buffer.Write(sample_t{.red = tempRed, .infraRed = tempInfraRed});
 		//printf("tr = %lu, tir = %lu\n", tempRed, tempInfraRed);
 
 		_numberOfSamples--;
@@ -132,30 +150,30 @@ namespace device
 		{
 		case State::Reset:
 			Reset();
-			fmt::print("[MAX30102:] Resetting...\n");
+			PRINTI("[MAX30102:]", "Resetting...\n");
 			_state = State::Init;
 			break;
 		case State::Init:
 			Configure();
 			_state = State::Idle;
-			fmt::print("[MAX30102:] Configuration successful.\n");
+			PRINTI("[MAX30102:]", "Configuration successful.\n");
 			break;
 		case State::Idle:
+		{
+			std::uint8_t ReadPointer  = 0, WritePointer = 0;
+			this->read(Register::FiFoRead, 1, &ReadPointer);
+			this->read(Register::FiFoWrite, 1, &WritePointer);
+
+			if(ReadPointer == WritePointer) break;
+
+			_numberOfSamples = WritePointer - ReadPointer;
+
+			if(_numberOfSamples < 0)
 			{
-				std::uint8_t ReadPointer  = 0, WritePointer = 0;
-				this->read(Register::FiFoRead, 1, &ReadPointer);
-				this->read(Register::FiFoWrite, 1, &WritePointer);
-
-				if(ReadPointer == WritePointer) break;
-
-				_numberOfSamples = WritePointer - ReadPointer;
-
-				if(_numberOfSamples < 0)
-				{
-					_numberOfSamples += 32;
-				}
-				_state = State::ReadData;
+				_numberOfSamples += 32;
 			}
+			_state = State::ReadData;
+		}
 			nobreak;
 		case State::ReadData:
 			ReadData();

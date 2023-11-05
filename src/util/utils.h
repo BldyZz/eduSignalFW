@@ -1,28 +1,39 @@
 #pragma once
 
-// external
-#include "fmt/format.h"
 // std
 #include <type_traits>
 #include <span>
+#include <array>
 // internal
-#include "../util/defines.h"
+#include "defines.h"
+#include "types.h"
 
 namespace util
 {
 	template <class... T>
-	struct always_false : std::false_type
-	{
-	};
-
+	struct always_false : std::false_type { };
 	template<class... T>
 	constexpr bool always_false_v = always_false<T...>::value;
 
-	template<typename T>
-	concept Enum = std::is_enum_v<T>; // Enumeration type
-	template<typename T>
-	concept Integral = std::is_integral_v<T>; // Integral type 
 
+	template<typename E>
+	concept Enum = std::is_enum_v<E>;
+	template<typename I>
+	concept Integral = std::is_integral_v<I>;
+	template<typename C>
+	concept Container = requires(C c) // Lightweight Container concept
+	{
+		typename C::value_type;
+		typename C::reference;
+		typename C::const_reference;
+		typename C::iterator;
+		typename C::const_iterator;
+		typename C::difference_type;
+		typename C::size_type;
+		{ c.size() } -> std::same_as<typename C::size_type>;
+	};
+
+	
 	template<Enum EnumType>
 	constexpr auto to_underlying(EnumType _enum)
 		-> std::underlying_type_t<EnumType>
@@ -36,8 +47,8 @@ namespace util
 		return size * sizeof(T);
 	}
 
-	template<template<typename, typename...> typename Container, typename T, typename... Args>
-	constexpr size_t total_size(Container<T, Args...> const& container)
+	template<template<typename, typename...> class C, typename T, typename... Args>
+	constexpr size_t total_size(C<T, Args...> const& container)
 	{
 		return std::size(container) * sizeof(T);
 	}
@@ -48,18 +59,23 @@ namespace util
 		return sizeof(T);
 	}
 
+	template<class T>
+	constexpr size_t total_size(T const&)
+	{
+		return sizeof(T);
+	}
+
+	template<class T>
+	constexpr size_t total_size()
+	{
+		return sizeof(T);
+	}
+
 	template<typename T, size_t Size>
 	constexpr std::span<const T> to_span(const T(&arr)[Size])
 	{
 		return std::span(&arr[0], Size);
 	}
-
-	template<typename T, size_t Size>
-	constexpr std::span<const T, Size> to_span(const std::array<T, Size>& arr)
-	{
-		return std::span(arr.data(), Size);
-	}
-
 	template<typename T, size_t Size>
 	constexpr std::span<T> to_span(T(&arr)[Size])
 	{
@@ -68,6 +84,12 @@ namespace util
 
 	template<typename T, size_t Size>
 	constexpr std::span<T, Size> to_span(std::array<T, Size>& arr)
+	{
+		return std::span(arr.data(), Size);
+	}
+
+	template<typename T, size_t Size>
+	constexpr std::span<const T, Size> to_span(const std::array<T, Size>& arr)
 	{
 		return std::span(arr.data(), Size);
 	}
@@ -107,7 +129,6 @@ namespace util
 	}
 
 }
-
 
 #define create_bitwise_operators(enum_t) \
 	constexpr enum_t operator | (enum_t a, enum_t b) noexcept { return static_cast<enum_t>(to_underlying(a) | to_underlying(b)); } \

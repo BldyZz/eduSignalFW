@@ -8,6 +8,7 @@
 #include "../config/devices.h"
 #include "../util/types.h"
 #include "../memory/ring_buffer.h"
+#include "../memory/int.h"
 // std
 #include <span>
 
@@ -18,10 +19,10 @@ namespace device
 	public:
 		BHI160();
 
-		void                Init();
-		void                Handler();
-		bool                IsReady() const;
-		mem::ring_buffer_t* RingBuffer();
+		void             Init();
+		void             Handler();
+		bool             IsReady() const;
+		mem::RingBuffer* RingBuffer();
 	private:
 
 		enum class State : util::byte;
@@ -39,18 +40,20 @@ namespace device
 		void GetData();
 		void PrintVersionAndStatus();
 
-		struct acceleration_t
-		{
-			int16_t X, Y, Z;
-			util::byte status;
-		};
+		//struct acceleration_t
+		//{
+		//	int16_t X, Y, Z;
+		//	util::byte status;
+		//};
 
-		acceleration_t _acceleration[10];
+		using acceleration_storage_t = mem::int24_t;
+
+		acceleration_storage_t _acceleration[config::BHI160::SAMPLES_IN_RINGBUFFER * 4]; // X, Y, Z, Status
 
 		util::timestamp_t  _timestamp;
 		std::uint16_t      _bytesInFIFO;
 		State              _state;
 		StaticSemaphore_t  _mutexBuffer{};
-		mem::ring_buffer_t _buffer;
+		mem::RingBuffer    _buffer;
 	};
 }

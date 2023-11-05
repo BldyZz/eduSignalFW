@@ -2,8 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 
 #include "../util/utils.h"
+
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 namespace device
 {
@@ -66,16 +70,16 @@ namespace device
 
 	void MCP3561::Init()
 	{
-		_buffer = mem::createStaticRingBuffer(_output, &_mutexBuffer);
+		_buffer = mem::RingBuffer(&_mutexBuffer, _output, config::MCP3561::ID);
 		gpio_set_direction(config::MCP3561::IRQ_PIN, GPIO_MODE_INPUT);
-		fmt::print("[MCP3561:] Initialization complete.\n");
+		PRINTI("[MCP3561:]", "Initialization complete.\n");
 	}
 
-	mem::ring_buffer_t* MCP3561::RingBuffer()
+	mem::RingBuffer* MCP3561::RingBuffer()
 	{
-		if(!_buffer.buffer)
+		if(!_buffer.IsValid())
 		{
-			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
+			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
 		}
 		return &_buffer;
 	}
@@ -84,7 +88,7 @@ namespace device
 	{
 		sendBlocking(util::to_span(Command::FullReset));
 		_resetTime = std::chrono::system_clock::now() + std::chrono::microseconds(200);
-		fmt::print("[MCP3561:] Resetting...\n");
+		PRINTI("[MCP3561:]", "Resetting...\n");
 	}
 
 	void MCP3561::PowerUp()
@@ -97,20 +101,20 @@ namespace device
 			this->sendBlocking(util::to_span(setConfig0), rxData);
 			if(rxData[1] == 0xC0)
 			{
-				fmt::print("MCP3561: Power up complete!\n");
+				PRINTI("[MCP3561:]", "Power up complete!\n");
 				_errorCounter = 0;
 				_state = State::Config;
 			} else
 			{
-				fmt::print("MCP3561: Power up failed! Chip not responding! Retrying...\n");
+				PRINTI("[MCP3561:]", "Power up failed! Chip not responding! Retrying...\n");
 				++_errorCounter;
 				_state = State::Reset;
 			}
 		}
 		if(_errorCounter > 10)
 		{
-			fmt::print("MCP3561: Too many errors... Shutting down!\n");
-			fmt::print("MCP3561: Check all voltages on Chip! Maybe analog or digital supply missing!\n");
+			PRINTI("[MCP3561:]", "Too many errors... Shutting down!\n");
+			PRINTI("[MCP3561:]", "Check all voltages on Chip! Maybe analog or digital supply missing!\n");
 			_state = State::Shutdown;
 		}
 	}
@@ -161,13 +165,16 @@ namespace device
 		rxData.fill({});
 
 		this->sendBlocking(util::to_span(txData), rxData);
-		dc_t transformedData = 0;
-		std::ranges::reverse(rxData);
-		std::memcpy(&transformedData, &rxData[0], 4);
+		std::int32_t transformedData = 0;
+		std::reverse_copy(rxData.begin(), rxData.end(), &transformedData);
+
+
 		//transformedData = transformedData << 8;
-		transformedData = transformedData >> 8;
+		//transformedData	 = transformedData >> 8;
 		//fmt::print("{} {:#010b}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(rxData, ", "));
-		mem::write(&_buffer, transformedData);
+		_buffer.Lock();
+		*static_cast<mem::int24_t*>(_buffer.WriteAdvance()) = mem::int24_t(transformedData);
+		_buffer.Unlock();
 	}
 
 	void MCP3561::Handler()

@@ -4,65 +4,106 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "fmt/format.h"
 
+#include <type_traits>
+
+/** Memory Layout of a Ringbuffer with N channels of equal size.
+* Legend: 
+*	d*: Data pointer 
+*	r*: Read pointer  
+*	w*: Write pointer
+*	nc: Node count
+*	N:  Number of channels
+* 
+* +-------------------------+-----+-------------------------+
+* | Channel 0               | ... | Channel N               |
+* +-------------------------+-----+-------------------------+
+* |           |           |       |           |           |
+* d*          r*         w*  d* + nc * N     d* + nc*N   w* + nc*N
+* 
+* When r* or w* reach the end of the first channel, it will reset to d*.
+* 
+**/
 namespace mem
 {
-	struct ring_buffer_t
-	{
-		util::byte*       buffer     = nullptr;
-		SemaphoreHandle_t mutex      = nullptr;
-		size_t			  node_size  = 0;
-		size_t			  node_count = 0;
-		size_t			  head       = 0;
-		size_t			  tail       = 0;
-	};
+	class RingBuffer;
+	using RingBufferHandle = RingBuffer*;
 
-	inline bool hasData(const ring_buffer_t* ringBuffer)
+	struct RingBufferArray
 	{
-		const bool ret = ringBuffer->tail != ringBuffer->head;
-		return ret;
-	}
+		size_t 		      size    = 0;
+		RingBufferHandle* buffers = nullptr;
 
-	inline size_t size(const ring_buffer_t* ringBuffer)
+		
+	};	
+
+	class RingBuffer
 	{
-		return (ringBuffer->tail - ringBuffer->head) & (ringBuffer->node_count - 1);
-	}
+	public:
+		using size_type = uint16_t;
+		using id_type   = uint8_t;
 
-	template<typename NodeStructure>
-	void write(ring_buffer_t* ringBuffer, NodeStructure value)
-	{
-		xSemaphoreTake(ringBuffer->mutex, portMAX_DELAY);
-		reinterpret_cast<NodeStructure*>(ringBuffer->buffer)[ringBuffer->tail] = value;
-		ringBuffer->tail                                                       = (ringBuffer->tail + 1) % ringBuffer->node_count;
-		xSemaphoreGive(ringBuffer->mutex);
-	}
+		static constexpr id_type INVALID_ID = -1;
+	public:
+		RingBuffer();
 
-	template<typename NodeStructure>
-	NodeStructure read(ring_buffer_t* ringBuffer)
-	{
-		xSemaphoreTake(ringBuffer->mutex, portMAX_DELAY);
-		NodeStructure node = reinterpret_cast<NodeStructure*>(ringBuffer->buffer)[ringBuffer->head];
-		ringBuffer->head = (ringBuffer->head + 1) % ringBuffer->node_count;
-		xSemaphoreGive(ringBuffer->mutex);
-		return node;
-	}
-
-	template<typename NodeStructure, size_t Size>
-	ring_buffer_t createStaticRingBuffer(NodeStructure (&buffer)[Size], StaticSemaphore_t* mutexBuffer)
-	{
-		SemaphoreHandle_t mutex;
-		mutex = xSemaphoreCreateMutexStatic(mutexBuffer);
-		configASSERT(mutex);
-
-		return ring_buffer_t
+		template<typename T, util::size_t Size>
+		RingBuffer(StaticSemaphore_t* mutexBuffer, T(&buffer)[Size], id_type id, id_type channelCount = 1)
+			: _buffer(buffer),
+		      _nodeSize(sizeof(T)),
+		      _nodeCount(Size / channelCount),
+		      _read(0),
+			  _write(0),
+			  _id(id),
+			  _channelCount(channelCount)
 		{
-			.buffer     = reinterpret_cast<util::byte*>(&buffer[0]),
-			.mutex      = mutex,
-			.node_size  = sizeof(NodeStructure),
-			.node_count = Size,
-			.head       = 0,
-			.tail       = 0,
-		};
-	}
+			assert(channelCount > 0 && "RingBuffer(...): The channel count of a RingBuffer cannot be 0.");
+			_mutex = xSemaphoreCreateMutexStatic(mutexBuffer);
+			configASSERT(_mutex);
+		}
+
+		template<typename NodeStructure>
+		void Write(NodeStructure value)
+		{
+			xSemaphoreTake(_mutex, portMAX_DELAY);
+			static_cast<NodeStructure*>(_buffer)[_write] = value;
+			_write = (_write + 1) % _nodeCount;
+			xSemaphoreGive(_mutex);
+		}
+		template<typename NodeStructure>
+		NodeStructure Read()
+		{
+			xSemaphoreTake(_mutex, portMAX_DELAY);
+			NodeStructure node = static_cast<NodeStructure*>(_buffer)[_read];
+			_read = (_read + 1) % _nodeCount;
+			xSemaphoreGive(_mutex);
+			return node;
+		}
+
+		void  Lock();
+		void  Unlock();
+
+		void* ReadAdvance();
+		void* WriteAdvance();
+		void* ChangeChannel(void* ptr, id_type channelIndex);
+
+		bool	  IsValid() const;
+		bool	  HasData() const;
+
+		size_type NodeSize() const;
+		size_type Size() const;
+		id_type   Id() const;
+		id_type   ChannelCount() const;
+	private:
+		using semphr_t = SemaphoreHandle_t;
+
+		void*	  _buffer;
+		semphr_t  _mutex;
+		size_type _nodeSize;
+		size_type _nodeCount;
+		size_type _read;
+		size_type _write;
+		id_type   _id;
+		id_type   _channelCount;
+	};
 }

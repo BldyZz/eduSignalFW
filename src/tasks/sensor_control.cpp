@@ -10,18 +10,21 @@
 #include "../devices/TSC2003.hpp"
 
 #include "sensor_control.h"
+#include "task_config.h"
+
+#include <cstdio>
 
 namespace sys
 {
-	void sensor_control_task(WRITE_ONLY void* args)
+	void sensor_control_task(WRITE_ONLY void* array)
 	{
-		fmt::print("[SensorControlTask:] Initializing...\n");
+		std::printf("[SensorControlTask:] Initializing...\n");
 
 		// Create SPI, I2C Interfaces
 		esp::spiHost<config::ADS1299::Config> boardSPI;
-		fmt::print("[SensorControlTask:] Initialized SPI.\n");
+		std::printf("[SensorControlTask:] Initialized SPI.\n");
 		esp::i2cMaster<config::I2C0_Config> boardI2C;
-		fmt::print("[SensorControlTask:] Initialized I2C.\n");
+		std::printf("[SensorControlTask:] Initialized I2C.\n");
 
 		// Create and initialize Sensors
 		device::MAX30102 pulseOxiMeter;
@@ -33,38 +36,39 @@ namespace sys
 
 		pulseOxiMeter.Init();
 		ecg.Init();
-		imu.Init();
-		ioExpander.Init();
-		adc.Init();
-		touchScreenController.Init();
+		//imu.Init();
+		//ioExpander.Init();
+		//adc.Init();
+		//touchScreenController.Init();
 		
 		while(!pulseOxiMeter.IsReady()) pulseOxiMeter.Handler();
 
-		// ReSharper disable once CppTooWideScope
-		mem::ring_buffer_t* sensor_buffers[] =
+		// ReSharper disable once CppTooWideScope	
+		mem::RingBuffer* sensor_buffers[] =
 		{
 			pulseOxiMeter.RingBuffer(),
 			ecg.ECGRingBuffer(),
-			imu.RingBuffer(),
+			//imu.RingBuffer(),
 			//adc.RingBuffer(),
 		};
 
 		// Pass back ring buffer. 
+		*static_cast<mem::RingBufferArray*>(array) = mem::RingBufferArray
 		{
-			mem::ring_buffer_t*** ringBufferInfoPtrPtr = static_cast<mem::ring_buffer_t***>(args);
-			*ringBufferInfoPtrPtr = sensor_buffers;
-			size_t* numberOfRingBuffers = reinterpret_cast<size_t*>(ringBufferInfoPtrPtr + 1);
-			*numberOfRingBuffers = std::size(sensor_buffers);
-		}
+			.size    = std::size(sensor_buffers),
+			.buffers = sensor_buffers
+		};
+
+		// Timer Create
 
 		// Start Measuring
 		while(true)
 		{
 			pulseOxiMeter.Handler();
 			ecg.Handler();
-			imu.Handler();
+			//imu.Handler();
 
-			//vTaskDelay(pdMS_TO_TICKS(1000));
+			WATCHDOG_HANDLING();
 		}
 	}
 }

@@ -9,11 +9,14 @@
 #include "esp_lcd_panel_vendor.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "fmt/format.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lvgl.h"
 
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
+
+#include <cstdio>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -98,13 +101,13 @@ struct Display {
           disp_buf;   // contains internal graphic buffer(s) called draw buffer(s)
         static lv_disp_drv_t disp_drv;   // contains callback functions
 
-        fmt::print("Turn off LCD backlight\n");
+        PRINTI("[Display:]", "Turn off LCD backlight\n");
         gpio_config_t bk_gpio_config{};
         bk_gpio_config.mode         = GPIO_MODE_OUTPUT;
         bk_gpio_config.pin_bit_mask = 1ULL << displayConfig::BACKLIGHTPin;
         ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
 
-        fmt::print("Initialize SPI bus\n");
+        PRINTI("[Display:]", "Initialize SPI bus\n");
         spi_bus_config_t buscfg{};
         buscfg.sclk_io_num     = displayConfig::SPIConfig::SCK;
         buscfg.mosi_io_num     = displayConfig::SPIConfig::MOSI;
@@ -115,7 +118,7 @@ struct Display {
         ESP_ERROR_CHECK(
           spi_bus_initialize(displayConfig::SPIConfig::SPIHost, &buscfg, SPI_DMA_CH_AUTO));
 
-        fmt::print("Install panel IO\n");
+        PRINTI("[Display:]", "Install panel IO\n");
         esp_lcd_panel_io_handle_t     io_handle = NULL;
         esp_lcd_panel_io_spi_config_t io_config{};
         io_config.dc_gpio_num         = displayConfig::DCPin;
@@ -133,7 +136,7 @@ struct Display {
           &io_config,
           &io_handle));
 
-        fmt::print("Install GC9A01 panel driver\n");
+        PRINTI("[Display:]", "Install GC9A01 panel driver\n");
         esp_lcd_panel_handle_t     panel_handle = nullptr;
         esp_lcd_panel_dev_config_t panel_config{};
         panel_config.reset_gpio_num = displayConfig::RESETPin;
@@ -148,10 +151,10 @@ struct Display {
         // user can flush pre-defined pattern to the screen before we turn on the screen or backlight
         ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-        fmt::print("Turn on LCD backlight\n");
+        PRINTI("[Display:]", "Turn on LCD backlight\n");
         gpio_set_level(displayConfig::BACKLIGHTPin, 1);
 
-        fmt::print("Initialize LVGL library\n");
+        PRINTI("[Display:]", "Initialize LVGL library\n");
         lv_init();
         // alloc draw buffers used by LVGL
         // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
@@ -164,7 +167,7 @@ struct Display {
         // initialize LVGL draw buffers
         lv_disp_draw_buf_init(&disp_buf, buf1, buf2, displayConfig::displayHeight * 20);
 
-        fmt::print("Register display driver to LVGL\n");
+        PRINTI("[Display:]", "Register display driver to LVGL\n");
         lv_disp_drv_init(&disp_drv);
         disp_drv.hor_res       = displayConfig::displayHeight;
         disp_drv.ver_res       = displayConfig::displayWidth;
@@ -174,7 +177,7 @@ struct Display {
         disp_drv.user_data     = panel_handle;
         lv_disp_t* disp        = lv_disp_drv_register(&disp_drv);
 
-        fmt::print("Install LVGL tick timer\n");
+        PRINTI("[Display:]", "Install LVGL tick timer\n");
         // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
         esp_timer_create_args_t lvgl_tick_timer_args{};
         lvgl_tick_timer_args.callback      = &example_increase_lvgl_tick;
@@ -183,7 +186,7 @@ struct Display {
         ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
         ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, 2 * 1000));
         lv_disp_set_rotation(disp, LV_DISP_ROT_90);
-        fmt::print("Display Widget\n");
+        PRINTI("[Display:]", "Display Widget\n");
         //example_lvgl_demo_ui(disp);
         displayWidget(disp);
     }

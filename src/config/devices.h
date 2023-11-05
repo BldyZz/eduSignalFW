@@ -22,13 +22,13 @@
 
 using address_t = std::uint8_t;
 
-
 namespace config
 {
 	struct ADS1299
 	{
 		using Config = BoardSPIConfig;
-
+		
+		static constexpr size_t     ID							= 0;
 		static constexpr size_t		CLOCK_SPEED                 = 1 * 100 * 1000;
 		static constexpr size_t     CHANNEL_COUNT               = 4;
 		static constexpr size_t     ECG_SAMPLES_IN_RINGBUFFER   = 10;
@@ -54,14 +54,17 @@ namespace config
 	{
 		using Config = I2C0_Config;
 
-		static constexpr gpio_num_t INTERRUPT_PIN  = GPIO_NUM_39;
-		static constexpr address_t  ADDRESS        = 0x28;
+		static constexpr size_t     ID                    = 1;
+		static constexpr size_t     SAMPLES_IN_RINGBUFFER = 10;
+		static constexpr gpio_num_t INTERRUPT_PIN         = GPIO_NUM_39;
+		static constexpr address_t  ADDRESS               = 0x28;
 	};
 
 	struct MAX30102
 	{
 		using Config = I2C0_Config;
 
+		static constexpr size_t    ID                     = 2;
 		static constexpr address_t ADDRESS                = 0x57;
 		static constexpr size_t    SAMPLES_IN_RING_BUFFER = 100;
 	};
@@ -70,6 +73,7 @@ namespace config
 	{
 		using Config = BoardSPIConfig;
 
+		static constexpr size_t     ID = 3;
 		static constexpr address_t  ADDRESS                    = 0x1;
 		static constexpr size_t		CLOCK_SPEED                = 1 * 100 * 1000;
 		static constexpr size_t		SPI_MAX_TRANSACTION_LENGTH = 20; // Maximum length of one spi transaction in bytes.

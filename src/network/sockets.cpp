@@ -1,10 +1,13 @@
 #include "sockets.h"
 
+#include <cstdio>
 #include <cstdint>
 #include <string_view>
 #include <sys/socket.h>
-#include <fmt/format.h>
 #include <netdb.h>
+
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 #include "../util/defines.h"
 
@@ -44,7 +47,7 @@ namespace net
 
 		if(setsockopt(socket, SOL_SOCKET, SO_RCVBUF, buffer, std::size(buffer)))
 		{
-			fmt::print("[UDP:] Failed to set socket options: errno = {}\n", strerror(errno));
+			PRINTI("[UDP:]", "Failed to set socket options: \"%s\" \n", strerror(errno));
 			close_udp_socket(socket);
 			return INVALID_CLIENT;
 		}
@@ -57,22 +60,22 @@ namespace net
 
 		if(bind(socket, (sockaddr*)&receiverAddress, sizeof(receiverAddress)) < 0)
 		{
-			fmt::print("[UDP:] Failed to bind socket.\n");
+			PRINTI("[UDP:]", "Failed to bind socket.\n");
 			return INVALID_CLIENT;
 		}
 
 		// Receive
-		fmt::print("[UDP:] Successfully bound socket. Wait for message on port '{}'...\n", PORT);
+		PRINTI("[UDP:]", "Successfully bound socket. Wait for message on port '%u'...\n", PORT);
 		sockaddr_in sockaddr_in;
 		socklen_t socketAddressSize = sizeof(sockaddr_in);
 
 		int isCmd = false;
 		do
 		{
-			int length = recvfrom(socket, buffer, std::size(cmd) - 1, 0, OUT reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
+			(void)recvfrom(socket, buffer, std::size(cmd) - 1, 0, OUT reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
 			buffer[std::size(cmd) - 1] = '\0';
 			isCmd = strcmp(buffer, cmd);
-			fmt::print("{}, {}\n", buffer, isCmd);
+			//PRINTI("[UDP:]", "%s\n", buffer);
 		} while(isCmd);
 		
 		return client_t{.ipv4 = sockaddr_in.sin_addr.s_addr, .port = PORT};
@@ -83,14 +86,13 @@ namespace net
 		static constexpr uint16_t PORT = 1212;
 		constexpr char OK[] = "OK";
 
-
 		timeval timeout;
 		timeout.tv_sec = 1000;
 		timeout.tv_usec = 0;
 
 		if(setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)))
 		{
-			fmt::print("[UDP:] Failed to set socket options: errno = {}\n", strerror(errno));
+			PRINTI("[UDP:]", "Failed to set socket options: \"%s\"\n", strerror(errno));
 			close_udp_socket(socket);
 			return;
 		}
@@ -102,11 +104,42 @@ namespace net
 		
 		if(bind(socket, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress)) < 0)
 		{
-			fmt::print("[UDP:] Failed to bind socket.\n");
+			PRINTI("[UDP:]", "Failed to bind socket.\n");
 			return;
 		}
 
-		ssize_t length = sendto(socket, OK, std::size(OK), 0, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress));
-		fmt::print("[UDP:] Send message to \"{}\".\n", client.ipv4);
+		(void)sendto(socket, OK, std::size(OK), 0, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress));
+		PRINTI("[UDP:]", "Send message to \"%lu\".\n", client.ipv4);
+
+		// TODO: OK send
+	}
+
+	void send_pkg(udp_socket socket, client_t const& client, void* data, util::size_t size_in_bytes)
+	{
+		static constexpr uint16_t PORT = 1212;
+
+		timeval timeout;
+		timeout.tv_sec = 1000;
+		timeout.tv_usec = 0;
+
+		if(setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)))
+		{
+			PRINTI("[UDP:]", "Failed to set socket options: \"%s\"\n", strerror(errno));
+			close_udp_socket(socket);
+			return;
+		}
+
+		sockaddr_in receiverAddress;
+		receiverAddress.sin_family = AF_INET;
+		receiverAddress.sin_port = htons(PORT);
+		receiverAddress.sin_addr.s_addr = client.ipv4;
+
+		if(bind(socket, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress)) < 0)
+		{
+			PRINTI("[UDP:]", "Failed to bind socket.\n");
+			return;
+		}
+
+		(void)sendto(socket, data, size_in_bytes, 0, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress));
 	}
 }

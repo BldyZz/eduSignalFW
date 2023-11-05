@@ -1,11 +1,14 @@
 // external
 // std
 #include <functional>
+#include <cstdio>
 // internal
 #include "../util/utils.h"
 
 #include "TSC2003.hpp"
 
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 namespace device
 {
@@ -52,7 +55,7 @@ namespace device
 		gpio_set_pull_mode(config::TSC2003::NIRQ_PIN, GPIO_PULLUP_ONLY);
 
 		_state = State::SetConversion;
-		fmt::print("[TSC2003:] Initialization successful.\n");
+		PRINTI("[TSC2003:]", "Initialization successful.\n");
 	}
 
 	void TSC2003::Handler()

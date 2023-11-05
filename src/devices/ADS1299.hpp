@@ -3,17 +3,16 @@
 // internal
 #include "../config/devices.h"
 #include "../util/types.h"
+#include "../memory/int.h"
 #include "../memory/ring_buffer.h"
 // external
-#include "esp_util/spiDevice.hpp"
-#include "esp_util/spiHost.hpp"
+#include <esp_util/spiDevice.hpp>
+#include <esp_util/spiHost.hpp>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 namespace device
 {
-	static size_t ADS1299_MAX_LENGTH_OF_TRANSACTION = 20; // Maximum length of one spi transaction in bytes.
-
 	class ADS1299 : protected esp::spiDevice<config::ADS1299::Config, config::ADS1299::SPI_MAX_TRANSACTION_LENGTH>
 	{
 	public:
@@ -23,20 +22,9 @@ namespace device
 		void Handler();
 		bool IsReady() const;
 
-		mem::ring_buffer_t* ECGRingBuffer();
-		mem::ring_buffer_t* NoiseRingBuffer();
-
+		mem::RingBuffer* ECGRingBuffer();
+		mem::RingBuffer* NoiseRingBuffer();
 	private:
-
-		using voltage_t = int32_t;
-
-		struct ecg_t
-		{
-			voltage_t channel[config::ADS1299::CHANNEL_COUNT] = {};
-		};
-
-		using noise_t = ecg_t;
-
 		enum class State : util::byte;
 		struct Command;
 		struct Register;
@@ -45,7 +33,6 @@ namespace device
 		struct Config2Flags;
 		struct Config3Flags;
 		struct ChannelFlags;
-
 		struct RegisterAccess
 		{
 			enum : util::byte
@@ -54,11 +41,14 @@ namespace device
 				Write = 0x40,
 			};
 		};
+
+		using voltage_t = mem::int24_t;
+		using status_t  = mem::uint24_t;
+
 		static constexpr util::byte RREG(util::byte registerAddress);
 		static constexpr util::byte WREG(util::byte registerAddress);
 
-		void CaptureData();
-		void CaptureNoiseData();
+		void CaptureData(mem::RingBuffer& buf);
 
 		void Reset();
 		void PowerUp();
@@ -69,23 +59,23 @@ namespace device
 		void SetNoiseData();
 		void SetCustomSettings();
 
-		State              _state;
-		noise_t            _noise[config::ADS1299::NOISE_SAMPLES_IN_RINGBUFFER]; // Noise data 
-		ecg_t              _ecg[config::ADS1299::ECG_SAMPLES_IN_RINGBUFFER];     // Electrocardiography data
-		uint32_t           _statusBits;
-		size_t             _resetCounter;
-		mem::ring_buffer_t _ecgBuffer;
-		mem::ring_buffer_t _noiseBuffer;
-		StaticSemaphore_t  _mutexBuffer[2];
+		State             _state;
+		voltage_t         _noise[config::ADS1299::CHANNEL_COUNT * config::ADS1299::NOISE_SAMPLES_IN_RINGBUFFER]; // Noise data (Not implemented)
+		voltage_t         _ecg[config::ADS1299::CHANNEL_COUNT * config::ADS1299::ECG_SAMPLES_IN_RINGBUFFER];     // Electrocardiography data
+		uint32_t          _statusBits;
+		size_t            _resetCounter;
+		mem::RingBuffer	  _ecgBuffer;
+		mem::RingBuffer	  _noiseBuffer;
+		StaticSemaphore_t _mutexBuffer[2];
 	};
 
 	constexpr util::byte ADS1299::RREG(util::byte registerAddress)
 	{
-		return registerAddress | RegisterAccess::Read;
+		return registerAddress | ADS1299::RegisterAccess::Read;
 	}
 
 	constexpr util::byte ADS1299::WREG(util::byte registerAddress)
 	{
-		return registerAddress | RegisterAccess::Write;
+		return registerAddress | ADS1299::RegisterAccess::Write;
 	}
 }

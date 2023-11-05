@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "../util/defines.h"
+#include "../util/types.h"
 
 namespace net
 {
@@ -32,4 +33,5 @@ namespace net
 
 	CHECKVAL NODISCARD client_t check_for_clients(udp_socket socket);
 	void      send_ok(udp_socket socket, const client_t& client);
+	void	  send_pkg(udp_socket socket, client_t const& client, void* data, util::size_t size_in_bytes);
 }

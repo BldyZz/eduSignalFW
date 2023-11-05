@@ -1,0 +1,5 @@
+#pragma once
+
+#define WATCHDOG_TIME_FOR_HANDLING 10
+
+#define WATCHDOG_HANDLING() xTaskNotifyWait(0, 0, nullptr, pdMS_TO_TICKS(WATCHDOG_TIME_FOR_HANDLING))

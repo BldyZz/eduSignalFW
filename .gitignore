@@ -3,7 +3,9 @@
 /cmake-build-debug/
 sdkconfig
 sdkconfig.old
-/.vscode/
 .cache
 dependencies.lock
 managed_components
+.pio
+/.vscode/
+/.vs/

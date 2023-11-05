@@ -16,8 +16,8 @@ namespace net
 	void wait_for_connection();
 	bool is_connected();
 
-	static void wifi_init_phase(); // Initializes Events and WiFi Tasks
-	static void wifi_configure_phase(std::string_view ssid, std::string_view pw); // Configures the WiFi
-	static void wifi_start_phase();
+	void wifi_init_phase(); // Initializes Events and WiFi Tasks
+	void wifi_configure_phase(std::string_view ssid, std::string_view pw); // Configures the WiFi
+	void wifi_start_phase();
 	void get_ip_info();
 }

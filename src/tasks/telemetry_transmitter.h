@@ -2,5 +2,5 @@
 
 namespace sys
 {
-	void telemetry_transmitter_task(void* args);
+	void telemetry_transmitter_task(void* array);
 }

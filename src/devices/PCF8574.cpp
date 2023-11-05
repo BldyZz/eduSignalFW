@@ -6,7 +6,7 @@
 namespace device
 {
 	PCF8574::PCF8574()
-		: Output({.value = 0}), _oldOutput(0), _currentInput(0)
+		: Output({.value = 0}),  _currentInput(0), _oldOutput(0)
 	{
 	}
 

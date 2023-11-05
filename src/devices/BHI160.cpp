@@ -1,16 +1,21 @@
 #include "../util/utils.h"
+#include "../util/time.h"
 
 #include "BHI160.hpp"
+#include "BHI160_Firmware.hpp"
 
 #include <bit>
+#include <cstdio>
+#include <cstring>
 
-#include "BHI160_Firmware.hpp"
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 namespace device
 {
 	enum class BHI160::State : util::byte
 	{
-		Reset,
+		Reset,	
 		WaitForInterrupt1,
 		FirmwareUpload,
 		ModeSwitch,
@@ -77,13 +82,14 @@ namespace device
 	void BHI160::Init()
 	{
 		_state = State::Reset;
-		_buffer = mem::createStaticRingBuffer(_acceleration, &_mutexBuffer);
-		fmt::print("[BHI160:] Initialization successful.\n");
+		_buffer = mem::RingBuffer(&_mutexBuffer, _acceleration, config::BHI160::ID, 4);
+		
 		gpio_set_direction(config::BHI160::INTERRUPT_PIN, GPIO_MODE_INPUT);
-		while(!IsReady())
-		{
+
+		while(!IsReady()) 
 			Handler();
-		}
+
+		PRINTI("[BHI160:]", "Initialization successful.\n");
 	}
 
 	void BHI160::HandleData(std::span<util::byte> package)
@@ -115,17 +121,23 @@ namespace device
 		case Event::Accelerometer:
 		case Event::AccelerometerWakeUp:
 		{
-			const std::int16_t tempZ      = package[1] | package[2] << 8;
-			const std::int16_t tempY      = package[3] | package[4] << 8;
-			const std::int16_t tempX      = package[5] | package[6] << 8;
-			const std::uint8_t tempStatus = package[7];
-			mem::write(&_buffer, acceleration_t
+			const mem::int24_t accelerationData[] =
 			{
-			   .X = tempX,
-			   .Y = tempY,
-			   .Z = tempZ,
-			   .status = tempStatus,
-			});
+				mem::int24_t(static_cast<std::int32_t>(package[5] | package[6] << 8)), // X
+				mem::int24_t(static_cast<std::int32_t>(package[3] | package[4] << 8)), // Y
+				mem::int24_t(static_cast<std::int32_t>(package[1] | package[2] << 8)), // Z
+				mem::int24_t(static_cast<std::uint8_t>(package[7])),                   // Status
+			};
+
+			_buffer.Lock();
+			void* data = _buffer.WriteAdvance();
+			mem::int24_t* target_buffer = static_cast<mem::int24_t*>(data);
+			for(util::byte channel = 0; channel < _buffer.ChannelCount(); channel++, target_buffer = static_cast<mem::int24_t*>(_buffer.ChangeChannel(data, channel)))
+			{
+				*target_buffer = accelerationData[channel];
+			}
+			_buffer.Unlock();
+			
 			HandleData(std::span{package.begin() + 8, package.end()});
 		}
 		break;
@@ -179,19 +191,19 @@ namespace device
 			iterBegin += BYTES_TO_WRITE;
 		}
 
-		fmt::print("[BHI160:] {} Bytes written...\n", counter);
+		PRINTI("[BHI160:]", "%u Bytes written...\n", counter);
 
 		vTaskDelay(pdMS_TO_TICKS(10)); // Evil delay, but only necessary on firmware upload, so it doesn't matter.
 
 		uint32_t registerCRC;
 		this->read(Register::Upload_CRC, sizeof(registerCRC), reinterpret_cast<util::byte*>(&registerCRC));
 		registerCRC = util::byte_swap(registerCRC);
-		fmt::print("[BHI160:] Register CRC: 0x{:02x}, Firmware CRC: 0x{:x}\n", registerCRC, BHI160_Firmware_CRC);
+		//fmt::print("[BHI160:] Register CRC: 0x{:02x}, Firmware CRC: 0x{:x}\n", registerCRC, BHI160_Firmware_CRC);
 
 		uint16_t registerAddress;
 		this->read(Register::Upload_Address_0, sizeof(registerAddress), reinterpret_cast<util::byte*>(&registerAddress));
 		//this->read(Register::Upload_Address_1, 1, &RegisterAddress[1]);
-		fmt::print("[BHI160:] Register Address 0x{:02x}\n", registerAddress);
+		//fmt::print("[BHI160:] Register Address 0x{:02x}\n", registerAddress);
 
 	}
 
@@ -202,7 +214,7 @@ namespace device
 		//Keep read after write here, otherwise Chip wont boot properly!!!
 		std::uint8_t ChipControl;
 		this->read(Register::Chip_Control, 1, &ChipControl);
-		fmt::print("[BHI160:] ChipControl: 0x{:02x}\n", ChipControl);
+		PRINTI("[BHI160:]", "ChipControl: %02X\n", ChipControl);
 	}
 
 	void BHI160::ConfigureDevices()
@@ -240,11 +252,7 @@ namespace device
 		static constexpr util::byte parameterRequest[] = {Register::Parameter_Request, 0x80 | sensorID};
 		this->write(util::to_span(parameterRequest));
 
-		// Print out parameters
-		fmt::print("[BHI160:] Config Parameter Data: \n");
-		for(auto const& e : rxData) fmt::print("{};", e);
 		//Enable other Step counter with 0 latency
-
 	}
 
 	void BHI160::GetRemainingFIFOSize()
@@ -285,16 +293,16 @@ namespace device
 	{
 		std::uint16_t RAMVersion;
 		this->read(Register::RAM_Version, sizeof(RAMVersion), reinterpret_cast<util::byte*>(&RAMVersion));
-		fmt::print("[BHI160:] RAM Version 0x{:02x}\n", RAMVersion);
+		PRINTI("[BHI160:]", "RAM Version %02X\n", RAMVersion);
 
 		std::uint16_t ROMVersion;
 		this->read(Register::ROM_Version, sizeof(ROMVersion), reinterpret_cast<util::byte*>(&ROMVersion));
 		ROMVersion = util::byte_swap(ROMVersion);
-		fmt::print("[BHI160:] ROM Version 0x{:02x}\n", ROMVersion);
+		PRINTI("[BHI160:]", "ROM Version %02X\n", ROMVersion);
 
 		util::byte ChipStatus;
 		this->read(Register::Chip_Status, 1, &ChipStatus);
-		fmt::print("[BHI160:] ChipStatus: 0x{:02x}\n", ChipStatus);
+		PRINTI("[BHI160:]", "ChipStatus: %02X\n", ChipStatus);
 	}
 
 	void BHI160::Handler()
@@ -302,7 +310,7 @@ namespace device
 		switch(_state)
 		{
 		case State::Reset:
-			fmt::print("[BHI160:] Resetting...\n");
+			PRINTI("[BHI160:]", "Resetting...\n");
 			Reset();
 			_state = State::WaitForInterrupt1;
 			break;
@@ -312,7 +320,7 @@ namespace device
 			{
 				StartRAMPatch();
 				_state = State::FirmwareUpload;
-				fmt::print("[BHI160:] Uploading firmware...\n");
+				PRINTI("[BHI160:]", "Uploading firmware...\n");
 			}
 			break;
 
@@ -330,7 +338,7 @@ namespace device
 		case State::WaitForInterrupt2:
 			if(gpio_get_level(config::BHI160::INTERRUPT_PIN))
 			{
-				fmt::print("[BHI160:] Configuring device...\n");
+				PRINTI("[BHI160:]", "Configuring device...\n");
 				PrintVersionAndStatus();
 
 				_state = State::Configuration;
@@ -364,11 +372,11 @@ namespace device
 		return _state >= State::Idle;
 	}
 
-	mem::ring_buffer_t* BHI160::RingBuffer()
+	mem::RingBuffer* BHI160::RingBuffer()
 	{
-		if(!_buffer.buffer)
+		if(!_buffer.IsValid())
 		{
-			fmt::print("[BHI160:] Ring buffer was not initialized!\n");
+			PRINTI("[BHI160:]", "Ring buffer was not initialized!\n");
 		}
 		return &_buffer;
 	}

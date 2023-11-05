@@ -3,12 +3,17 @@
 // intern
 #include "../util/utils.h"
 #include "../util/defines.h"
+#include "../util/time.h"
 
 #include <array>
 #include <algorithm>
 #include <functional>
+#include <cstdio>
 
 #include "ADS1299.hpp"
+
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
 namespace device
 {
@@ -154,19 +159,24 @@ namespace device
 	ADS1299::ADS1299(esp::spiHost<config::ADS1299::Config> const &bus)
 		: esp::spiDevice<config::ADS1299::Config, config::ADS1299::SPI_MAX_TRANSACTION_LENGTH>(
 			  bus, config::ADS1299::CLOCK_SPEED, config::ADS1299::CS_PIN, config::ADS1299::SPI_MODE),
-		  _noise{},
-		  _ecg{},
+		  _state(State::Reset),
+		  _noise({}),
+		  _ecg({}),
 		  _statusBits(0),
 		  _resetCounter(0),
-		  _state(State::Reset)
+		  _ecgBuffer({}),
+		  _noiseBuffer({}),
+		  _mutexBuffer({})
 	{
 	}
 
 	void ADS1299::Init()
 	{
 		_state       = State::Reset;
-		_ecgBuffer   = mem::createStaticRingBuffer(_ecg, _mutexBuffer);
-		_noiseBuffer = mem::createStaticRingBuffer(_noise, _mutexBuffer + 1);
+
+		_ecgBuffer   = mem::RingBuffer(_mutexBuffer, _ecg, 1, config::ADS1299::CHANNEL_COUNT);
+		_noiseBuffer = mem::RingBuffer(_mutexBuffer + 1, _noise, 2, config::ADS1299::CHANNEL_COUNT);
+
 		gpio_set_direction(config::ADS1299::RESET_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_DRDY_PIN, GPIO_MODE_INPUT);
@@ -175,61 +185,35 @@ namespace device
 		{
 			Handler();
 		}
-		fmt::print("[ADS1299:] Initialization successful.\n");
+		PRINTI("[ADS1299:]", "Initialization successful.\n");
 	}
 
-	void ADS1299::CaptureData()
+	void ADS1299::CaptureData(mem::RingBuffer& buf)
 	{
-		std::array<util::byte, 3 * config::ADS1299::CHANNEL_COUNT * 3> rxData{};
-		std::array<util::byte, 3 * config::ADS1299::CHANNEL_COUNT * 3> txData{0x00};
-		ecg_t transformedData;
-		//std::array<voltage_t, config::ADS1299::CHANNEL_COUNT> transformedData{};
+		constexpr size_t TRANSACTION_SIZE = sizeof(status_t) + config::ADS1299::CHANNEL_COUNT * sizeof(voltage_t);
+		std::array<util::byte, TRANSACTION_SIZE> rxData{};
+		std::array<util::byte, TRANSACTION_SIZE> txData{0x00};
+		
 		this->sendBlocking(txData, rxData);
-		for (std::size_t i{}; i < config::ADS1299::CHANNEL_COUNT; ++i)
+
+		buf.Lock();
+		void* data = buf.WriteAdvance();
+		util::byte* target_buffer = static_cast<util::byte*>(data);
+		auto rxPtr = rxData.data() + sizeof(status_t);
+		for(util::byte channel = 0; channel < buf.ChannelCount(); channel++, target_buffer = static_cast<util::byte*>(buf.ChangeChannel(data, channel)))
 		{
-			util::byte toExtract[3];
-			std::memcpy(toExtract, &rxData[3 + i * 3], 3);
-			std::ranges::reverse(toExtract);
-			transformedData.channel[i] = std::numeric_limits<voltage_t>::max();
-			std::memcpy(&transformedData.channel[i], toExtract, 3);
-			static constexpr auto bitsToTrash{0};
-			// transformedData[i] = transformedData[i] >> bitsToTrash;
-			transformedData.channel[i] = transformedData.channel[i] << 8;
-			transformedData.channel[i] = transformedData.channel[i] >> 8;
+			std::reverse_copy(rxPtr, rxPtr + sizeof(voltage_t), target_buffer);
+			rxPtr += sizeof(voltage_t);
 		}
+		buf.Unlock();
+
 		std::int32_t tempStatusBits;
 		std::memcpy(&tempStatusBits, &rxData[0], 3);
 		_statusBits = tempStatusBits;
-
-		mem::write(&_ecgBuffer, transformedData);
-		//std::memcpy(_ecg, transformedData.data(), std::size(transformedData) * sizeof(data_t));
-	}
-
-	void ADS1299::CaptureNoiseData()
-	{
-		util::byte rxData[3 * config::ADS1299::CHANNEL_COUNT * 3]{};
-		util::byte txData[3 * config::ADS1299::CHANNEL_COUNT * 3]{0x00};
-		noise_t transformedData;
-		//voltage_t transformedData[config::ADS1299::CHANNEL_COUNT]{};
-		this->sendBlocking(util::to_span(txData), rxData);
-		for (std::size_t channel = 0; channel < config::ADS1299::CHANNEL_COUNT; ++channel)
-		{
-			std::array<std::byte, 3> toExtract;
-			std::memcpy(&toExtract[0], &rxData[3 + channel * 3], 3);
-			std::ranges::reverse(toExtract);
-			std::memcpy(&transformedData.channel[channel], &toExtract[0], 3);
-		}
-		std::int32_t tempStatusBits;
-		std::memcpy(&tempStatusBits, &rxData[0], 3);
-		_statusBits = tempStatusBits;
-
-		mem::write(&_noiseBuffer, transformedData);
 	}
 
 	void ADS1299::Handler()
 	{
-		// if(xSemaphoreTake(_semaphore, static_cast<TickType_t>(0)) == pdFALSE) return;
-
 		switch (_state)
 		{
 		case State::Reset:
@@ -248,13 +232,13 @@ namespace device
 			if (IsPoweredUp())
 			{
 				ConfigureExternalReference();
-				fmt::print("[ADS1299:] Communication established!\n");
+				PRINTI("[ADS1299:]", "Communication established!\n");
 				_resetCounter = 0;
 				_state = State::SetTestSignals; // Wait for internal Reference to settle
 			}
 			else
 			{
-				fmt::print("[ADS1299:] Could not set up device! Restarting...\n");
+				PRINTI("[ADS1299:]", "Could not set up device! Restarting...\n");
 				_resetCounter++;
 				_state = _resetCounter > 10 ? State::FatalError : State::Reset;
 			}
@@ -265,14 +249,13 @@ namespace device
 			break;
 		case State::SetNoiseData:
 			SetNoiseData();
-
 			_state = State::Idle;
 			break;
 		case State::CaptureNoiseData:
 			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0)
 			{
 				// TODO: sample more noise data and check noise
-				CaptureNoiseData();
+				CaptureData(_noiseBuffer);
 				_state = State::SetTestSignals;
 			}
 			break;
@@ -280,14 +263,14 @@ namespace device
 			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0)
 			{
 				// TODO: Capture Data and Test Signals
-				CaptureData();
+				CaptureData(_ecgBuffer);
 				_state = State::Idle;
 				//_state = State::SetCustomSettings;
 			}
 			break;
 		case State::SetCustomSettings:
 			SetCustomSettings();
-			fmt::print("[ADS1299:] Config complete!\n");
+			PRINTI("[ADS1299:]", "Config complete!\n");
 			_state = State::Idle;
 			break;
 		case State::Idle:
@@ -298,12 +281,12 @@ namespace device
 			_state = State::CaptureData;
 			nobreak;
 		case State::CaptureData:
-			CaptureData();
+			CaptureData(_ecgBuffer);
 			_state = State::Idle;
 			break;
 		case State::FatalError:
-			fmt::print("[ADS1299:] Too many errors... Shutting down!\n");
-			fmt::print("[ADS1299:] Check all voltages on Chip! Maybe analog or digital supply missing!\n");
+			PRINTI("[ADS1299:]", "Too many errors... Shutting down!\n");
+			PRINTI("[ADS1299:]", "Check all voltages on Chip! Maybe analog or digital supply missing!\n");
 			_state = State::Shutdown;
 			break;
 		case State::Shutdown:
@@ -319,20 +302,20 @@ namespace device
 		return _state == State::Idle;
 	}
 
-	mem::ring_buffer_t* ADS1299::ECGRingBuffer()
+	mem::RingBuffer* ADS1299::ECGRingBuffer()
 	{
-		if(!_ecgBuffer.buffer)
+		if(!_ecgBuffer.IsValid())
 		{
-			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
+			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
 		}
 		return &_ecgBuffer;
 	}
 
-	mem::ring_buffer_t* ADS1299::NoiseRingBuffer() 
+	mem::RingBuffer* ADS1299::NoiseRingBuffer()
 	{
-		if(!_noiseBuffer.buffer)
+		if(!_noiseBuffer.IsValid())
 		{
-			fmt::print("[ADS1299:] Ring buffer was not initialized!\n");
+			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
 		}
 		return &_noiseBuffer;
 	}
@@ -341,7 +324,7 @@ namespace device
 	{
 		gpio_set_level(config::ADS1299::N_PDWN_PIN, 0);
 		gpio_set_level(config::ADS1299::RESET_PIN, 0);
-		fmt::print("[ADS1299:] Resetting\n");
+		PRINTI("[ADS1299:]", "Resetting...\n");
 		vTaskDelay(pdMS_TO_TICKS(1)); // Evil delay, but only necessary on power up, so it doesn't matter.
 	}
 
@@ -357,7 +340,7 @@ namespace device
 		gpio_set_level(config::ADS1299::RESET_PIN, 0);
 		vTaskDelay(pdMS_TO_TICKS(1)); // Evil delay, but only necessary on power up, so it doesn't matter.
 		gpio_set_level(config::ADS1299::RESET_PIN, 1);
-		fmt::print("[ADS1299:] Power up complete\n");
+		PRINTI("[ADS1299:]", "Power up complete.\n");
 		vTaskDelay(pdMS_TO_TICKS(1)); // Evil delay, but only necessary on power up, so it doesn't matter.
 	}
 

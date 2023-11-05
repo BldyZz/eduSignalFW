@@ -3,7 +3,7 @@
 /**
  * \brief In-code indication defines
  */
-#define nobreak // Indicates that a jump into the next case statement occurs. Generally for optimization purposes.
+#define nobreak [[fallthrough]] // Indicates that a jump into the next case statement occurs. Generally for optimization purposes.
 
 /**
  * \brief Function indication defines
@@ -21,3 +21,4 @@
  */
 #define NAME(x)			 #x		   // Returns the name of the x parameter.
 #define BYTES_TO_BITS(x) ((x) * 8) // Returns the given number of bytes in bits
+#define PRINTI(tag, ...) std::printf(tag " " __VA_ARGS__)

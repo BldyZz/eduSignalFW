@@ -28,6 +28,8 @@ namespace esp
 		TransactionManager<spi_transaction_t, MaxTransactions> transactions;
 
 	public:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 		explicit spiDevice(
 			spiHost<SPIConfig> const& host,
 			std::size_t const  clockSpeed,
@@ -39,6 +41,7 @@ namespace esp
 			ESP_ERROR_CHECK(
 				spi_bus_add_device(host.getHostDevice(), &interfaceConfig, &spiDeviceHandle));
 		}
+#pragma GCC diagnostic pop
 
 		template<typename F>
 		void sendBlocking(std::span<byte const> package, F callback)
