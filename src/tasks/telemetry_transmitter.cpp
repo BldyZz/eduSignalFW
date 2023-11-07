@@ -29,22 +29,38 @@ namespace sys
 		net::connect(ssid, pw);
 		net::wait_for_connection();
 
-		// Open UDP Socket
-		auto socket = net::open_udp_socket();
-		if(!net::is_valid(socket))
-		{
-			std::printf("[TelemetryTransmitterTask:] Unable to open UDP socket.");
-			return;
-		}
-		net::get_ip_info();
-
-		net::client_t client;
-		if(!is_valid(client = net::check_for_clients(socket)))
-		{
-			return;
-		}
 		
-		net::send_ok(socket, client);
+		// Open UDP Socket
+		net::Socket socket;
+		constexpr static net::port_t port = 1212;
+		socket.Open(net::Protocol::TCP, port);
+		socket.AutoConnect();
+
+		char okMsg[] = "OK";
+		socket.Send(okMsg, std::size(okMsg));
+		//char rcv[std::size(okMsg)];
+		//socket.Receive(rcv, std::size());
+
+		while (true)
+		{
+		}
+
+		uint16_t channelsN = 0;
+		for(uint16_t rbuf = 0; rbuf < ringBufferArray.size; rbuf++)
+		{
+			channelsN += ringBufferArray.buffers[rbuf]->ChannelCount();
+		}
+
+		file::bdf_header_t generalHeader;
+		file::create_general_header(&generalHeader, 0.03125f, channelsN);
+		socket.Send(&generalHeader, sizeof(generalHeader));
+
+		for(uint16_t rbuf = 0; rbuf < ringBufferArray.size; rbuf++)
+		{
+			file::bdf_record_header_t record_header;
+			file::create_record_header(&record_header, "", "", "", -2, 2, -1, 1, "", 0);
+			socket.Send(&record_header, sizeof(record_header));
+		}
 
 		util::byte send_buffer[1024];
 		mem::Stack send_stack = send_buffer;
@@ -57,7 +73,7 @@ namespace sys
 				{
 					const bool fits = send_stack.Fits(ringBufferArray.buffers[i]->NodeSize());
 
-					if(!fits) net::send_pkg(socket, client, send_stack.Data(), send_stack.Size());
+					if(!fits) socket.Send(send_stack.Data(), send_stack.Size());
 
 					ringBufferArray.buffers[i]->Lock();
 					send_stack.Push(ringBufferArray.buffers[i]->ReadAdvance(), ringBufferArray.buffers[i]->NodeSize());

@@ -93,7 +93,7 @@ namespace net
 		esp_netif_ip_info_t ipInfo;
 		esp_netif_get_ip_info(sta_netif, &ipInfo);
 
-		printf("[IP:]" IPSTR "\n", IP2STR(&ipInfo.ip));
+		PRINTI("[WLAN:]", "ip = '" IPSTR "'\n", IP2STR(&ipInfo.ip));
 		//fmt::print(" ipInfo.ip.addr = {}", );
 	}
 

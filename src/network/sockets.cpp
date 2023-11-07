@@ -1,145 +1,176 @@
 #include "sockets.h"
 
+#include <cassert>
 #include <cstdio>
 #include <cstdint>
-#include <string_view>
-#include <sys/socket.h>
+#include <cstring>
 #include <netdb.h>
 
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include "esp_log.h"
 
+#include "../util/utils.h"
 #include "../util/defines.h"
+#include "wifi.hpp"
 
 namespace net
 {
-	bool operator==(client_t const& left, client_t const& right)
+	Socket::Socket()
 	{
-		return left.ipv4 == right.ipv4 && left.port == right.port;
+
 	}
 
-	udp_socket open_udp_socket()
-	{
-		return socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-	}
-
-	void close_udp_socket(udp_socket const& socket)
-	{
-		shutdown(socket, 0);
-		close(socket);
-	}
-
-	bool is_valid(udp_socket const& socket)
-	{
-		return socket >= 0;
-	}
-
-	bool is_valid(client_t const& client)
-	{
-		return client != INVALID_CLIENT;
-	}
-
-	client_t check_for_clients(udp_socket socket)
-	{
-		static constexpr uint16_t PORT = 1212;
-		static constexpr char cmd[] = "EDF-DISCOVER";
-		char buffer[std::size(cmd)];
-
-		if(setsockopt(socket, SOL_SOCKET, SO_RCVBUF, buffer, std::size(buffer)))
+    void Socket::Open(Protocol protocol, port_t port, Domain domain)
+    {
+		_port = port;
+		
+		switch(protocol)
 		{
-			PRINTI("[UDP:]", "Failed to set socket options: \"%s\" \n", strerror(errno));
-			close_udp_socket(socket);
-			return INVALID_CLIENT;
-		}
+        case Protocol::UDP:
+			_protocol = SOCK_DGRAM;
+			break;
+        case Protocol::TCP:
+			_protocol = SOCK_STREAM;
+        	break;
+		default:
+			break;
+        }
+		
+		switch (domain) {
+        case Domain::IPv4:
+			_address = sockaddr_in
+			{
+				.sin_family = AF_INET,
+				.sin_port   = htons(port),
+			};
+			break;
+        //	case Domain::IPv6:
+		//		s.addr6 = sockaddr_in6
+		//		{
+		//			.sin_family6 = AF_INET6,
+		//			.sin_port   = htons(port),
+		//		};
+        //		break;
+        }
 
-		// Bind Socket
-		sockaddr_in receiverAddress;
-		receiverAddress.sin_family      = AF_INET;
-		receiverAddress.sin_port        = htons(PORT);
-		receiverAddress.sin_addr.s_addr = INADDR_ANY;
-
-		if(bind(socket, (sockaddr*)&receiverAddress, sizeof(receiverAddress)) < 0)
+		_id = socket(_address.sin_family, _protocol, 0);
+		if(_id < 0)
 		{
-			PRINTI("[UDP:]", "Failed to bind socket.\n");
-			return INVALID_CLIENT;
+			assert(0 && "Socket could not be created.");
 		}
+    }
 
-		// Receive
-		PRINTI("[UDP:]", "Successfully bound socket. Wait for message on port '%u'...\n", PORT);
+	void Socket::Close()
+	{
+		shutdown(_id, 0);
+		close(_id);
+	}
+
+	void Socket::Send(void* data, util::size_t size_in_bytes)
+	{
+		auto err = send(_id, data, size_in_bytes, 0);
+		if(err < 0) 
+		{
+			PRINTI("[Socket:]", "Sending package failed.");
+		}
+	}
+
+	void Socket::Receive(OUT void* buffer, util::size_t size_in_bytes)
+	{
+		auto err = recv(_id, buffer, size_in_bytes - 1, 0);
+		if(err < 0)
+		{
+			PRINTI("[Socket:]", "Receiving package failed.");
+		}
+	}
+
+	void Socket::Receive(OUT void* buffer, util::size_t size_in_bytes, ipv4_t* ip)
+	{
 		sockaddr_in sockaddr_in;
 		socklen_t socketAddressSize = sizeof(sockaddr_in);
 
-		int isCmd = false;
+		auto err = recvfrom(_id, buffer, size_in_bytes - 1, 0, reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
+		if(err < 0)
+		{
+			PRINTI("[Socket:]", "Receiving package failed.");
+		}
+		*ip = sockaddr_in.sin_addr.s_addr;
+	}
+
+	void Socket::AutoConnect()
+	{
+		get_ip_info();
+
+		static constexpr char cmd[] = "BDF-DISCOVER";
+		ipv4_t ip;
+
+		Socket udp;
+		udp.Open(Protocol::UDP, _port);
+		udp.Connect("");
+
+		char buf[util::total_size(cmd)];
+
 		do
 		{
-			(void)recvfrom(socket, buffer, std::size(cmd) - 1, 0, OUT reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
-			buffer[std::size(cmd) - 1] = '\0';
-			isCmd = strcmp(buffer, cmd);
-			//PRINTI("[UDP:]", "%s\n", buffer);
-		} while(isCmd);
+			udp.Receive(buf, util::total_size(cmd), OUT &ip);
+			PRINTI("[AutoConnect:]", "Msg\n");
+		} while(std::strcmp(cmd, buf) != 0);
 		
-		return client_t{.ipv4 = sockaddr_in.sin_addr.s_addr, .port = PORT};
+		udp.Close();
+
+		Connect(ip);
 	}
 
-	void send_ok(udp_socket socket, const client_t& client)
+	bool Socket::IsTCP() const
 	{
-		static constexpr uint16_t PORT = 1212;
-		constexpr char OK[] = "OK";
-
-		timeval timeout;
-		timeout.tv_sec = 1000;
-		timeout.tv_usec = 0;
-
-		if(setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)))
-		{
-			PRINTI("[UDP:]", "Failed to set socket options: \"%s\"\n", strerror(errno));
-			close_udp_socket(socket);
-			return;
-		}
-		
-		sockaddr_in receiverAddress;
-		receiverAddress.sin_family      = AF_INET;
-		receiverAddress.sin_port        = htons(PORT);
-		receiverAddress.sin_addr.s_addr = client.ipv4;
-		
-		if(bind(socket, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress)) < 0)
-		{
-			PRINTI("[UDP:]", "Failed to bind socket.\n");
-			return;
-		}
-
-		(void)sendto(socket, OK, std::size(OK), 0, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress));
-		PRINTI("[UDP:]", "Send message to \"%lu\".\n", client.ipv4);
-
-		// TODO: OK send
+		return _protocol == SOCK_STREAM;
 	}
 
-	void send_pkg(udp_socket socket, client_t const& client, void* data, util::size_t size_in_bytes)
+	void Socket::Connect(const char* ipv4)
 	{
-		static constexpr uint16_t PORT = 1212;
-
-		timeval timeout;
-		timeout.tv_sec = 1000;
-		timeout.tv_usec = 0;
-
-		if(setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)))
+		if(IsTCP()) // TCP
 		{
-			PRINTI("[UDP:]", "Failed to set socket options: \"%s\"\n", strerror(errno));
-			close_udp_socket(socket);
+			_address.sin_addr.s_addr = inet_addr(ipv4);
+			connect(_id, (sockaddr *)&_address, sizeof(_address));
 			return;
 		}
-
-		sockaddr_in receiverAddress;
-		receiverAddress.sin_family = AF_INET;
-		receiverAddress.sin_port = htons(PORT);
-		receiverAddress.sin_addr.s_addr = client.ipv4;
-
-		if(bind(socket, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress)) < 0)
+		// else UDP
+		if(ipv4[0] == '\0')
 		{
-			PRINTI("[UDP:]", "Failed to bind socket.\n");
+			_address.sin_addr.s_addr = INADDR_ANY;
+		}
+		else
+		{
+			_address.sin_addr.s_addr = inet_addr(ipv4);
+		}
+	}
+
+	void Socket::Connect(ipv4_t ip)
+	{
+		if(!IsTCP()) // TCP
+		{
+			_address.sin_addr.s_addr = ip;
+			connect(_id, (sockaddr*)&_address, sizeof(_address));
 			return;
 		}
+		// else UDP
+		if(!ip) 
+		{
+			_address.sin_addr.s_addr = INADDR_ANY;
+		}
+		else
+		{
+			_address.sin_addr.s_addr = ip;
+		}
+	}
 
-		(void)sendto(socket, data, size_in_bytes, 0, reinterpret_cast<sockaddr*>(&receiverAddress), sizeof(receiverAddress));
+	void Socket::SetTimeout(long seconds)
+	{
+		timeval t
+		{
+			.tv_sec  = seconds,
+			.tv_usec = 0
+		};
+		setsockopt(_id, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));
 	}
 }

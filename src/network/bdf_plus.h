@@ -46,8 +46,8 @@ namespace file
 		ascii_t physical_maximum[8];	// (e.g. 500 or 40)
 		ascii_t digital_minimum[8];		// (e.g. - 2048)
 		ascii_t digital_maximum[8];		// (e.g. 2047) 
-		ascii_t prefiltering[80];		// (e.g.HP:0.1Hz LP : 75Hz) 
-		ascii_t nr_of_samples_in_each_data_record[8];
+		ascii_t pre_filtering[80];		// (e.g.HP:0.1Hz LP : 75Hz) 
+		ascii_t nr_of_samples_in_data_record[8];
 		ascii_t reserved[32];
 	};
 
@@ -59,5 +59,15 @@ namespace file
 		static constexpr char INFRARED[] = "Infrared";
 	};
 
-	void create_general_header(OUT bdf_header_t* header, float duration_of_a_data_record, uint16_t number_of_channels_N_in_data_record);
+	void create_general_header(OUT bdf_header_t* header, float duration_of_a_data_record, uint32_t number_of_channels_N_in_data_record);
+	void create_record_header(OUT bdf_record_header_t* header, 
+							  const ascii_t* label, 
+							  const ascii_t* transducer_type, 
+							  const ascii_t* physical_dimension, 
+							  int32_t physical_minimum, 
+							  int32_t physical_maximum,
+							  int32_t digital_minimum,
+							  int32_t digital_maximum,
+							  const ascii_t* pre_filtering,
+							  uint32_t nr_of_samples_in_data_record);
 }

@@ -27,11 +27,16 @@ namespace config
 	struct ADS1299
 	{
 		using Config = BoardSPIConfig;
-		
+
 		static constexpr size_t     ID							= 0;
-		static constexpr size_t		CLOCK_SPEED                 = 1 * 100 * 1000;
+		static constexpr size_t     DATA_RATE                   = 250; // in SPS
+
+		static constexpr char       ECG_LABEL[]                 = "EEG";
 		static constexpr size_t     CHANNEL_COUNT               = 4;
 		static constexpr size_t     ECG_SAMPLES_IN_RINGBUFFER   = 10;
+
+
+		static constexpr size_t		CLOCK_SPEED                 = 1 * 100 * 1000;
 		static constexpr size_t     NOISE_SAMPLES_IN_RINGBUFFER = 10;
 		static constexpr size_t		SPI_MAX_TRANSACTION_LENGTH  = 20; // Maximum length of one spi transaction in bytes.
 		static constexpr gpio_num_t CS_PIN                      = GPIO_NUM_5; // Chip select

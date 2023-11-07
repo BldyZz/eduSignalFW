@@ -5,33 +5,52 @@
 #include "../util/defines.h"
 #include "../util/types.h"
 
+#include <sys/socket.h>
+
 namespace net
 {
 	using ipv4_t     = uint32_t;
 	using port_t     = int32_t;
-	using udp_socket = int32_t;
-	struct client_t
+	enum class Domain : util::byte
 	{
-		ipv4_t ipv4;
-		port_t port;
+		IPv4,
+		//IPv6,
+	};
+	enum class Protocol : util::byte
+	{
+		UDP,
+		TCP,
 	};
 
-	constexpr ipv4_t   INVALID_IP = 0;
-	constexpr port_t   INVALID_PORT   = 2030;
-	constexpr client_t INVALID_CLIENT = 
+
+	class Socket
 	{
-		.ipv4   = INVALID_IP,
-		.port = INVALID_PORT,
+	public:
+		Socket();
+
+		void Open(Protocol protocol, port_t port, Domain domain = Domain::IPv4);
+		void Close();
+
+		void AutoConnect(); // Receives a broadcast and connects to the ip of the first package on the sockets port.
+		void Connect(const char* ipv4);
+		void Connect(ipv4_t ip);
+
+		void Send(void* data, util::size_t size_in_bytes);
+		void Receive(OUT void* buffer, util::size_t size_in_bytes);
+		void Receive(OUT void* buffer, util::size_t size_in_bytes, ipv4_t* ip);
+
+		void SetTimeout(long seconds);
+	private:
+
+		bool IsTCP() const;
+
+		union
+		{
+			sockaddr_in  _address;
+			//sockaddr_in6 address6;
+		};
+		int32_t _id;		  // Socket ID
+		int32_t _protocol; // UDP, TCP, ...?
+		port_t  _port;
 	};
-
-	NODISCARD bool operator==(client_t const& left, client_t const& right);
-
-	CHECKVAL NODISCARD udp_socket open_udp_socket();
-	void close_udp_socket(udp_socket const& socket);
-	NODISCARD bool is_valid(udp_socket const& socket);
-	NODISCARD bool is_valid(client_t const& client);
-
-	CHECKVAL NODISCARD client_t check_for_clients(udp_socket socket);
-	void      send_ok(udp_socket socket, const client_t& client);
-	void	  send_pkg(udp_socket socket, client_t const& client, void* data, util::size_t size_in_bytes);
 }

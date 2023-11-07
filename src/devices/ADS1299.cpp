@@ -388,8 +388,26 @@ namespace device
 
 	void ADS1299::SetNoiseData()
 	{
+		static constexpr util::byte dataRate = [] -> util::byte
+		{
+			if constexpr(config::ADS1299::DATA_RATE == 250)
+				return Config1Flags::DR_110;
+			else if constexpr(config::ADS1299::DATA_RATE == 500)
+				return Config1Flags::DR_101;
+			else if constexpr(config::ADS1299::DATA_RATE == 1'000)
+				return Config1Flags::DR_100;
+			else if constexpr(config::ADS1299::DATA_RATE == 2'000)
+				return Config1Flags::DR_011;
+			else if constexpr(config::ADS1299::DATA_RATE == 4'000)
+				return Config1Flags::DR_010;
+			else if constexpr(config::ADS1299::DATA_RATE == 8'000)
+				return Config1Flags::DR_001;
+			else if constexpr(config::ADS1299::DATA_RATE == 16'000)
+				return Config1Flags::DR_000;
+		}();
+		
 		// Configure Config 1
-		static constexpr util::byte config1RegisterContent = Config1Flags::RESERVED | Config1Flags::DR_110;
+		static constexpr util::byte config1RegisterContent = Config1Flags::RESERVED | dataRate;
 		static constexpr util::byte config1Package[] = {WREG(Register::Config1), BytesToWrite(1), config1RegisterContent};
 		this->sendBlocking(util::to_span(config1Package));
 

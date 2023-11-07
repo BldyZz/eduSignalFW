@@ -68,6 +68,7 @@
     <NMakeCleanCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe run -t clean</NMakeCleanCommandLine>
     <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <AdditionalOptions>/std:c++20</AdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeBuildCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe run</NMakeBuildCommandLine>
@@ -75,6 +76,7 @@
     <NMakeCleanCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe run -t clean</NMakeCleanCommandLine>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <AdditionalOptions>/std:c++20</AdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <NMakeBuildCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe --force run</NMakeBuildCommandLine>
@@ -91,11 +93,147 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="external\firmware\BHI160_Firmware.hpp" />
+    <ClInclude Include="external\fmt\include\fmt\args.h" />
+    <ClInclude Include="external\fmt\include\fmt\chrono.h" />
+    <ClInclude Include="external\fmt\include\fmt\color.h" />
+    <ClInclude Include="external\fmt\include\fmt\compile.h" />
+    <ClInclude Include="external\fmt\include\fmt\core.h" />
+    <ClInclude Include="external\fmt\include\fmt\format-inl.h" />
+    <ClInclude Include="external\fmt\include\fmt\format.h" />
+    <ClInclude Include="external\fmt\include\fmt\os.h" />
+    <ClInclude Include="external\fmt\include\fmt\ostream.h" />
+    <ClInclude Include="external\fmt\include\fmt\printf.h" />
+    <ClInclude Include="external\fmt\include\fmt\ranges.h" />
+    <ClInclude Include="external\fmt\include\fmt\std.h" />
+    <ClInclude Include="external\fmt\include\fmt\xchar.h" />
+    <ClInclude Include="external\fmt\test\fuzzing\fuzzer-common.h" />
+    <ClInclude Include="external\fmt\test\gtest-extra.h" />
+    <ClInclude Include="external\fmt\test\gtest\gmock\gmock.h" />
+    <ClInclude Include="external\fmt\test\gtest\gtest\gtest-spi.h" />
+    <ClInclude Include="external\fmt\test\gtest\gtest\gtest.h" />
+    <ClInclude Include="external\fmt\test\mock-allocator.h" />
+    <ClInclude Include="external\fmt\test\posix-mock.h" />
+    <ClInclude Include="external\fmt\test\scan.h" />
+    <ClInclude Include="external\fmt\test\test-assert.h" />
+    <ClInclude Include="external\fmt\test\util.h" />
+    <ClInclude Include="include\esp_util\i2cDevice.hpp" />
+    <ClInclude Include="include\esp_util\i2cMaster.hpp" />
+    <ClInclude Include="include\esp_util\nvs.hpp" />
+    <ClInclude Include="include\esp_util\spiDevice.hpp" />
+    <ClInclude Include="include\esp_util\spiHost.hpp" />
+    <ClInclude Include="include\esp_util\system.hpp" />
+    <ClInclude Include="include\esp_util\transactionManager.hpp" />
+    <ClInclude Include="include\esp_util\wlan.hpp" />
+    <ClInclude Include="src\config\devices.h" />
+    <ClInclude Include="src\config\i2c.h" />
+    <ClInclude Include="src\config\spi.h" />
+    <ClInclude Include="src\devices\ADS1299.hpp" />
+    <ClInclude Include="src\devices\BHI160.hpp" />
+    <ClInclude Include="src\devices\MAX30102.hpp" />
+    <ClInclude Include="src\devices\MCP3561.hpp" />
+    <ClInclude Include="src\devices\PCF8574.hpp" />
+    <ClInclude Include="src\devices\TSC2003.hpp" />
+    <ClInclude Include="src\display\display.hpp" />
+    <ClInclude Include="src\display\displayConfig.hpp" />
     <ClInclude Include="src\memory\int.h" />
+    <ClInclude Include="src\memory\nvs.h" />
+    <ClInclude Include="src\memory\ring_buffer.h" />
+    <ClInclude Include="src\memory\stack.h" />
+    <ClInclude Include="src\network\bdf_plus.h" />
+    <ClInclude Include="src\network\sockets.h" />
+    <ClInclude Include="src\network\wifi.hpp" />
+    <ClInclude Include="src\tasks\sensor_control.h" />
+    <ClInclude Include="src\tasks\task_config.h" />
+    <ClInclude Include="src\tasks\telemetry_transmitter.h" />
+    <ClInclude Include="src\util\defines.h" />
+    <ClInclude Include="src\util\literals.h" />
+    <ClInclude Include="src\util\time.h" />
+    <ClInclude Include="src\util\types.h" />
+    <ClInclude Include="src\util\utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="external\fmt\src\fmt.cc" />
+    <ClCompile Include="external\fmt\src\format.cc" />
+    <ClCompile Include="external\fmt\src\os.cc" />
+    <ClCompile Include="external\fmt\test\add-subdirectory-test\main.cc" />
+    <ClCompile Include="external\fmt\test\args-test.cc" />
+    <ClCompile Include="external\fmt\test\assert-test.cc" />
+    <ClCompile Include="external\fmt\test\chrono-test.cc" />
+    <ClCompile Include="external\fmt\test\color-test.cc" />
+    <ClCompile Include="external\fmt\test\compile-fp-test.cc" />
+    <ClCompile Include="external\fmt\test\compile-test.cc" />
+    <ClCompile Include="external\fmt\test\core-test.cc" />
+    <ClCompile Include="external\fmt\test\cuda-test\cpp14.cc" />
+    <ClCompile Include="external\fmt\test\detect-stdfs.cc" />
+    <ClCompile Include="external\fmt\test\enforce-checks-test.cc" />
+    <ClCompile Include="external\fmt\test\find-package-test\main.cc" />
+    <ClCompile Include="external\fmt\test\format-impl-test.cc" />
+    <ClCompile Include="external\fmt\test\format-test.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\chrono-duration.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\chrono-timepoint.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\float.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\main.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\named-arg.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\one-arg.cc" />
+    <ClCompile Include="external\fmt\test\fuzzing\two-args.cc" />
+    <ClCompile Include="external\fmt\test\gtest-extra-test.cc" />
+    <ClCompile Include="external\fmt\test\gtest-extra.cc" />
+    <ClCompile Include="external\fmt\test\gtest\gmock-gtest-all.cc" />
+    <ClCompile Include="external\fmt\test\header-only-test.cc" />
+    <ClCompile Include="external\fmt\test\module-test.cc" />
+    <ClCompile Include="external\fmt\test\noexception-test.cc" />
+    <ClCompile Include="external\fmt\test\os-test.cc" />
+    <ClCompile Include="external\fmt\test\ostream-test.cc" />
+    <ClCompile Include="external\fmt\test\posix-mock-test.cc" />
+    <ClCompile Include="external\fmt\test\printf-test.cc" />
+    <ClCompile Include="external\fmt\test\ranges-odr-test.cc" />
+    <ClCompile Include="external\fmt\test\ranges-test.cc" />
+    <ClCompile Include="external\fmt\test\scan-test.cc" />
+    <ClCompile Include="external\fmt\test\static-export-test\library.cc" />
+    <ClCompile Include="external\fmt\test\static-export-test\main.cc" />
+    <ClCompile Include="external\fmt\test\std-test.cc" />
+    <ClCompile Include="external\fmt\test\test-main.cc" />
+    <ClCompile Include="external\fmt\test\unicode-test.cc" />
+    <ClCompile Include="external\fmt\test\util.cc" />
+    <ClCompile Include="external\fmt\test\xchar-test.cc" />
+    <ClCompile Include="lcd_ui\lvgl_demo_ui.c" />
+    <ClCompile Include="lcd_ui\spi_lcd_touch_example_main.c" />
+    <ClCompile Include="src\devices\ADS1299.cpp" />
+    <ClCompile Include="src\devices\BHI160.cpp" />
+    <ClCompile Include="src\devices\MAX30102.cpp" />
+    <ClCompile Include="src\devices\MCP3561.cpp" />
+    <ClCompile Include="src\devices\PCF8574.cpp" />
+    <ClCompile Include="src\devices\TSC2003.cpp" />
+    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\memory\int.cpp" />
+    <ClCompile Include="src\memory\nvs.cpp" />
+    <ClCompile Include="src\memory\ring_buffer.cpp" />
+    <ClCompile Include="src\memory\stack.cpp" />
     <ClCompile Include="src\network\bdf_plus.cpp" />
+    <ClCompile Include="src\network\sockets.cpp" />
+    <ClCompile Include="src\network\wifi.cpp" />
+    <ClCompile Include="src\tasks\sensor_control.cpp" />
+    <ClCompile Include="src\tasks\telemetry_transmitter.cpp" />
+    <ClCompile Include="src\util\time.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+    <Text Include="lcd_ui\CMakeLists.txt" />
+    <Text Include="src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="external\fmt\doc\basic-bootstrap\layout.html" />
+    <None Include="external\fmt\doc\_templates\layout.html" />
+    <None Include="external\fmt\doc\_templates\search.html" />
+    <None Include="external\fmt\support\rtd\theme\layout.html" />
+    <None Include="include\README" />
+    <None Include="lcd_ui\idf_component.yml" />
+    <None Include="lcd_ui\Kconfig.projbuild" />
+    <None Include="lib\README" />
+    <None Include="partitions.csv" />
+    <None Include="platformio.ini" />
+    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
