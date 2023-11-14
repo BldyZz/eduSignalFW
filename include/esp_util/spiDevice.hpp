@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
-#include <vector>
 #include <cassert>
 
 namespace esp

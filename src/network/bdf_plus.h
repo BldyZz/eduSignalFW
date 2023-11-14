@@ -3,6 +3,8 @@
 #include <cstdint>
 #include "../util/defines.h"
 #include "../util/types.h"
+#include "../util/string_operations.h"
+
 
 namespace file
 {
@@ -49,6 +51,16 @@ namespace file
 		ascii_t pre_filtering[80];		// (e.g.HP:0.1Hz LP : 75Hz) 
 		ascii_t nr_of_samples_in_data_record[8];
 		ascii_t reserved[32];
+	};
+
+	struct BDF_COMMANDS
+	{
+		static constexpr auto DISCOVER           = util::non_terminated("BDF_DISCOVER");   // find firmware
+		static constexpr auto ACKNOWLEDGE         = util::non_terminated("BDF_ACK");
+		static constexpr auto REQ_HEADER         = util::non_terminated("BDF_REQ_HEADER");
+		static constexpr auto REQ_RECORD_HEADERS = util::non_terminated("BDF_REQ_RECORD_HEADERS");
+		static constexpr auto REQ_RECORDS        = util::non_terminated("BDF_REQ_RECORDS"); // In seconds (e.g. 0.005). indefinite = 0, until stop command
+		static constexpr auto REQ_STOP			= util::non_terminated("BDF_STOP");
 	};
 
 	struct EP_LABEL

@@ -11,6 +11,7 @@
 #include "../util/types.h"
 #include "../memory/ring_buffer.h"
 #include "../memory/int.h"
+#include "../network/bdf_plus.h"
 
 namespace device
 {
@@ -38,10 +39,11 @@ namespace device
 		void Configure();
 		void ReadData();
 
-		sample_t          _underlyingBuffer[2 * config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
-		mem::RingBuffer   _buffer;
-		int32_t           _numberOfSamples;
-		StaticSemaphore_t _mutexBuffer{};
-		State             _state;
+		sample_t                  _underlyingBuffer[config::MAX30102::CHANNEL_COUNT * config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
+		mem::RingBuffer           _buffer;
+		int32_t                   _numberOfSamples;
+		StaticSemaphore_t         _mutexBuffer{};
+		State                     _state;
+		file::bdf_record_header_t _bdfHeaders[config::MAX30102::CHANNEL_COUNT];
 	};
 }

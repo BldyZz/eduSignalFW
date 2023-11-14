@@ -4,7 +4,6 @@
 #include "freertos/task.h"
 
 #include "../memory/ring_buffer.h"
-#include "../memory/stack.h"
 #include "../config/devices.h"
 #include "../util/time.h"
 
@@ -14,14 +13,18 @@
 
 #include "task_config.h"
 
+#include <cmath>
+
 #define TEST_SENSORS 0
 
 namespace sys
 {
+	void send_data(mem::RingBufferView const& view, net::Socket& socket);
+
 	void telemetry_transmitter_task(void* array)
 	{
 		// Get infos about ring buffers.
-		mem::RingBufferArray ringBufferArray = *static_cast<mem::RingBufferArray*>(array);
+		mem::RingBufferView ringBufferView = *static_cast<mem::RingBufferView*>(array);
 
 		// Establish wifi connection
 		const char* ssid            = "WLAN-Q3Q83P_EXT";
@@ -34,76 +37,122 @@ namespace sys
 		net::Socket socket;
 		constexpr static net::port_t port = 1212;
 		socket.Open(net::Protocol::TCP, port);
-		socket.AutoConnect();
 
-		char okMsg[] = "OK";
-		socket.Send(okMsg, std::size(okMsg));
-		//char rcv[std::size(okMsg)];
-		//socket.Receive(rcv, std::size());
+		uint16_t channelsN = 0;
+		for(auto const& b : ringBufferView)
+		{
+			channelsN += b->ChannelCount();
+		}
+
+		file::bdf_header_t generalHeader{};
+		file::create_general_header(&generalHeader, config::DURATION_OF_MEASUREMENT, channelsN);
 
 		while (true)
 		{
-		}
+			// Connection stage
+			PRINTI("[TelemetryTask:]", "Waiting for device discover broadcast.\n");
+			socket.AutoConnect(file::BDF_COMMANDS::DISCOVER);
 
-		uint16_t channelsN = 0;
-		for(uint16_t rbuf = 0; rbuf < ringBufferArray.size; rbuf++)
-		{
-			channelsN += ringBufferArray.buffers[rbuf]->ChannelCount();
-		}
+			// Send ACKNOWLEDGE
+			socket.Send(file::BDF_COMMANDS::ACKNOWLEDGE);
+			PRINTI("[TelemetryTask:]", "Send acknowledgment.\n");
 
-		file::bdf_header_t generalHeader;
-		file::create_general_header(&generalHeader, 0.03125f, channelsN);
-		socket.Send(&generalHeader, sizeof(generalHeader));
+			// Receive header request and send it
+			socket.ReceiveAndCompareIndefinite(file::BDF_COMMANDS::REQ_HEADER);
+			PRINTI("[TelemetryTask:]", "Received header request.\n");
+			socket.Send(&generalHeader, sizeof(generalHeader));
+			PRINTI("[TelemetryTask:]", "Send header.\n");
 
-		for(uint16_t rbuf = 0; rbuf < ringBufferArray.size; rbuf++)
-		{
-			file::bdf_record_header_t record_header;
-			file::create_record_header(&record_header, "", "", "", -2, 2, -1, 1, "", 0);
-			socket.Send(&record_header, sizeof(record_header));
-		}
-
-		util::byte send_buffer[1024];
-		mem::Stack send_stack = send_buffer;
-		
-		while(true)
-		{
-			for(util::byte i = 0; i < ringBufferArray.size; i++)
+			// Receive record header request. Send all channel headers of all RingBuffer.
+			socket.ReceiveAndCompareIndefinite(file::BDF_COMMANDS::REQ_RECORD_HEADERS);
+			PRINTI("[TelemetryTask:]", "Received record header request.\n");
+			for(auto const& b : ringBufferView)
 			{
-				if(ringBufferArray.buffers[i]->HasData())
+				const auto header = b->RecordHeaders();
+				for(uint32_t channel = 0; channel < b->ChannelCount(); channel++)
 				{
-					const bool fits = send_stack.Fits(ringBufferArray.buffers[i]->NodeSize());
-
-					if(!fits) socket.Send(send_stack.Data(), send_stack.Size());
-
-					ringBufferArray.buffers[i]->Lock();
-					send_stack.Push(ringBufferArray.buffers[i]->ReadAdvance(), ringBufferArray.buffers[i]->NodeSize());
-					ringBufferArray.buffers[i]->Unlock();
+					socket.Send(header + channel, sizeof(file::bdf_record_header_t));
 				}
 			}
-			WATCHDOG_HANDLING();
-			//	
-			//	if(ringBuffers[0]->HasData())
-			//	{
-			//		auto sample     = ringBuffers[0]->read<sample_t>();
-			//		fmt::print("Red = {}, Infrared = {}\n", sample.red, sample.infraRed);
-			//	}
-			//	
-			//	if(ringBuffers[1]->HasData())
-			//	{
-			//		auto ecg = ringBuffers[1]->read<ecg_t>();
-			//		fmt::print("Ch1 = {}, Ch2 = {}, Ch3 = {}\n", ecg.channel[0], ecg.channel[1], ecg.channel[2]);
-			//	}
-			//	
-			//	if(ringBuffers[2]->HasData())
-			//	{
-			//		auto acceleration = mem::read<acceleration_t>(*(ringBuffers + 2));
-			//		fmt::print("X = {}, Y = {}, Z = {}, status = {} \n", acceleration.X, acceleration.Y, acceleration.Z, acceleration.status);
-			//	}
+			PRINTI("[TelemetryTask:]", "Send data record headers.\n");
 
-			//auto voltage    = mem::read<voltage_t>(ringBuffers + 1);
-			//fmt::print("Red = {}, Infrared = {}, Voltage = {} \n", sample.red, sample.infraRed, voltage);
-			//fmt::print("X = {}, Y = {}, Z = {}, status = {} \n", acceleration.X, acceleration.Y, acceleration.Z, acceleration.status);
-			//vTaskDelay(pdMS_TO_TICKS(100));
+			// Receive a command to start sending record data
+			float time;
+			{
+				char      reqRecordsBuffer[file::BDF_COMMANDS::REQ_RECORDS.size() + 1 + 6 + 1];
+				const int received = socket.Receive(reqRecordsBuffer, std::size(reqRecordsBuffer) - 1);
+				if(received <= 0)
+				{
+					PRINTI("[TelemetryTask:]", "Error received no request.\n");
+					continue;
+				}
+				reqRecordsBuffer[received] = '\0';
+				int isSame = std::memcmp(reqRecordsBuffer, file::BDF_COMMANDS::REQ_RECORDS.data(), file::BDF_COMMANDS::REQ_RECORDS.size());
+				// TODO if(!isSame) // Error Handling{ }
+				time = std::strtof(reqRecordsBuffer + file::BDF_COMMANDS::REQ_RECORDS.size() + 1, nullptr);
+			}
+
+			
+			if(time == 0.f)
+			{
+				// indefinite condition
+				socket.SetTimeout(0, 1'000);
+				do
+				{
+					send_data(ringBufferView, socket);
+					WATCHDOG_HANDLING();
+				} while(socket.ReceiveAndCompare(file::BDF_COMMANDS::REQ_STOP));
+			}
+			else
+			{
+				const int numberOfMeasurements = std::round(time / config::DURATION_OF_MEASUREMENT);
+				
+				// Send records
+				for(int measurement = 0; measurement < numberOfMeasurements; measurement++)
+				{
+					send_data(ringBufferView, socket);
+					WATCHDOG_HANDLING();
+				}
+			}
+			
+		}
+	}
+
+	void send_data(mem::RingBufferView const& view, net::Socket& socket)
+	{
+		for(auto const& b : view)
+		{
+			const auto nodesInBDFRecord = b->NodesInBDFRecord();
+
+			while (true)
+			{
+				if(b->Size() >= nodesInBDFRecord)
+				{
+					b->Lock();
+					if(b->IsOverflowing())
+					{
+						const auto nodesToOverflow = b->NodesToOverflow();
+						const auto nodesAfterOverflow = nodesInBDFRecord - nodesToOverflow;
+						void* readToOverflow    = b->ReadAdvance(nodesToOverflow);
+						void* readAfterOverflow = b->ReadAdvance(nodesAfterOverflow);
+						for(auto channel = 0; channel < b->ChannelCount(); channel++)
+						{
+							socket.Send(b->ChangeChannel(readToOverflow, channel), nodesToOverflow * b->NodeSize());
+							socket.Send(b->ChangeChannel(readAfterOverflow, channel), nodesAfterOverflow * b->NodeSize());
+						}
+					}
+					else
+					{
+						void* read = b->ReadAdvance(nodesInBDFRecord);
+						for(auto channel = 0; channel < b->ChannelCount(); channel++)
+						{
+							socket.Send(b->ChangeChannel(read, channel), nodesInBDFRecord * b->NodeSize());
+						}
+					}
+					b->Unlock();
+					break;
+				}
+			}
 		}
 	}
 }

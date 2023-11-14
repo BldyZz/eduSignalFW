@@ -16,6 +16,7 @@
 namespace net
 {
 	Socket::Socket()
+		: _id(-1), _protocol(0), _port(0)
 	{
 
 	}
@@ -66,7 +67,7 @@ namespace net
 		close(_id);
 	}
 
-	void Socket::Send(void* data, util::size_t size_in_bytes)
+	void Socket::Send(void const* data, util::size_t size_in_bytes)
 	{
 		auto err = send(_id, data, size_in_bytes, 0);
 		if(err < 0) 
@@ -75,46 +76,48 @@ namespace net
 		}
 	}
 
-	void Socket::Receive(OUT void* buffer, util::size_t size_in_bytes)
+	int Socket::Receive(OUT void* buffer, util::size_t size_in_bytes)
 	{
-		auto err = recv(_id, buffer, size_in_bytes - 1, 0);
-		if(err < 0)
+		auto length = recv(_id, buffer, size_in_bytes - 1, 0);
+		if(length < 0)
 		{
 			PRINTI("[Socket:]", "Receiving package failed.");
 		}
+		return length;
 	}
 
-	void Socket::Receive(OUT void* buffer, util::size_t size_in_bytes, ipv4_t* ip)
+	int Socket::Receive(OUT void* buffer, util::size_t size_in_bytes, ipv4_t* ip)
 	{
 		sockaddr_in sockaddr_in;
 		socklen_t socketAddressSize = sizeof(sockaddr_in);
 
-		auto err = recvfrom(_id, buffer, size_in_bytes - 1, 0, reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
-		if(err < 0)
+		auto length = recvfrom(_id, buffer, size_in_bytes - 1, 0, reinterpret_cast<sockaddr*>(&sockaddr_in), IN & socketAddressSize);
+		if(length < 0)
 		{
 			PRINTI("[Socket:]", "Receiving package failed.");
 		}
 		*ip = sockaddr_in.sin_addr.s_addr;
+		return length;
 	}
 
-	void Socket::AutoConnect()
+	void Socket::AutoConnect(const char* compareBuffer, util::size_t size_in_bytes, OUT char* buffer)
 	{
 		get_ip_info();
 
-		static constexpr char cmd[] = "BDF-DISCOVER";
 		ipv4_t ip;
 
 		Socket udp;
 		udp.Open(Protocol::UDP, _port);
+		PRINTI("[Socket:]", "Opened port '%ld' for AutoConnect.\n", _port);
 		udp.Connect("");
 
-		char buf[util::total_size(cmd)];
-
+		PRINTI("[Socket:]" "Starting to receive messages.\n");
 		do
 		{
-			udp.Receive(buf, util::total_size(cmd), OUT &ip);
-			PRINTI("[AutoConnect:]", "Msg\n");
-		} while(std::strcmp(cmd, buf) != 0);
+			udp.Receive(buffer, size_in_bytes, OUT &ip);
+			PRINTI("[Socket:]", "Received message for AutoConnect.\n");
+		}
+		while(std::strcmp(compareBuffer, buffer) != 0);
 		
 		udp.Close();
 
@@ -132,16 +135,27 @@ namespace net
 		{
 			_address.sin_addr.s_addr = inet_addr(ipv4);
 			connect(_id, (sockaddr *)&_address, sizeof(_address));
+			PRINTI("[Socket:]", "Connected to address '%s'.\n", ipv4);
 			return;
 		}
 		// else UDP
 		if(ipv4[0] == '\0')
 		{
 			_address.sin_addr.s_addr = INADDR_ANY;
+			int bc = 1;
+			if(setsockopt(_id, SOL_SOCKET, SO_BROADCAST, &bc, sizeof(bc)) < 0)
+			{
+				PRINTI("[Socket:]", "Failed to set socket option to broadcast.\n");
+				closesocket(_id);
+				return;
+			}
+			connect(_id, (sockaddr*)&_address, sizeof(_address));
+			PRINTI("[Socket:]", "Connected to any address.\n");
 		}
 		else
 		{
 			_address.sin_addr.s_addr = inet_addr(ipv4);
+			PRINTI("[Socket:]", "Connected to address '%s'.\n", ipv4);
 		}
 	}
 
@@ -164,12 +178,17 @@ namespace net
 		}
 	}
 
-	void Socket::SetTimeout(long seconds)
+	bool Socket::IsConnected()
+	{
+		return _address.sin_addr.s_addr != 0;
+	}
+
+	void Socket::SetTimeout(long seconds, long microseconds)
 	{
 		timeval t
 		{
 			.tv_sec  = seconds,
-			.tv_usec = 0
+			.tv_usec = microseconds,
 		};
 		setsockopt(_id, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));
 	}

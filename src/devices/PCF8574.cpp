@@ -1,7 +1,5 @@
 #include "PCF8574.hpp"
-
 #include <array>
-#include <memory>
 
 namespace device
 {
@@ -18,8 +16,8 @@ namespace device
 	void PCF8574::TransferData()
 	{
 		// Input
-		std::array<util::byte, 1> rxData;
-		this->read(0x00, rxData.size(), rxData.data());
+		util::byte rxData[1];
+		this->read(0x00, std::size(rxData), rxData);
 		_currentInput = rxData[0];
 
 		// Output

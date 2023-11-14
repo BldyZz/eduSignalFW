@@ -62,7 +62,32 @@ namespace device
 
 	void MAX30102::Init()
 	{
-		_buffer = mem::RingBuffer(&_mutexBuffer, _underlyingBuffer, config::MAX30102::ID, 2);
+		// Create BDF-Headers
+		for(int header = 0; header < config::MAX30102::CHANNEL_COUNT; header++)
+		{
+			char label[sizeof(config::MAX30102::LABEL) + 1 + 3 + 1];
+			DISCARD std::snprintf(label, std::size(label), "%s %1d", config::MAX30102::LABEL, header + 1);
+			create_record_header(&_bdfHeaders[header],
+								 label,
+								 config::MAX30102::TRANSDUCER_TYPE,
+								 config::MAX30102::PHYSICAL_DIMENSION,
+								 config::MAX30102::PHYSICAL_MINIMUM,
+								 config::MAX30102::PHYSICAL_MAXIMUM,
+								 config::MAX30102::DIGITAL_MINIMUM,
+								 config::MAX30102::DIGITAL_MAXIMUM,
+								 config::MAX30102::PRE_FILTERING,
+								 config::MAX30102::SAMPLES_IN_RING_BUFFER
+			);
+		}
+
+		auto* ptr =_underlyingBuffer;
+		_buffer = mem::RingBuffer(&_mutexBuffer, 
+								  ptr, 
+								  sizeof(sample_t),
+								  std::size(_underlyingBuffer), 
+								  config::MAX30102::CHANNEL_COUNT, 
+								  _bdfHeaders, 
+								  config::MAX30102::NODES_IN_BDF_RECORD);
 		PRINTI("[MAX30102:]", "Initialization successful.\n");
 	}
 
@@ -124,12 +149,12 @@ namespace device
 
 		mem::uint24_t tempRed;
 		std::reverse_copy(it, it + sizeof(mem::uint24_t), &tempRed);
-		tempRed.u_ms_8 &= 0x03;
+		tempRed._value[3] &= 0x03;
 		it += sizeof(mem::uint24_t);
 
 		mem::uint24_t tempInfraRed;
 		std::reverse_copy(it, it + sizeof(mem::uint24_t), &tempInfraRed);
-		tempInfraRed.u_ms_8 &= 0x03;
+		tempInfraRed._value[3] &= 0x03;
 
 		_buffer.Lock();
 		auto data = static_cast<mem::uint24_t*>(_buffer.WriteAdvance());

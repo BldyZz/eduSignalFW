@@ -3,12 +3,12 @@
 // external
 #include "esp_util/i2cDevice.hpp"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 // internal
 #include "../config/devices.h"
 #include "../util/types.h"
 #include "../memory/ring_buffer.h"
 #include "../memory/int.h"
+#include "../network/bdf_plus.h"
 // std
 #include <span>
 
@@ -48,12 +48,13 @@ namespace device
 
 		using acceleration_storage_t = mem::int24_t;
 
-		acceleration_storage_t _acceleration[config::BHI160::SAMPLES_IN_RINGBUFFER * 4]; // X, Y, Z, Status
+		acceleration_storage_t _acceleration[config::BHI160::SAMPLES_IN_RINGBUFFER * config::BHI160::CHANNEL_COUNT];
 
-		util::timestamp_t  _timestamp;
-		std::uint16_t      _bytesInFIFO;
-		State              _state;
-		StaticSemaphore_t  _mutexBuffer{};
-		mem::RingBuffer    _buffer;
+		util::timestamp_t         _timestamp;
+		std::uint16_t             _bytesInFIFO;
+		State                     _state;
+		StaticSemaphore_t         _mutexBuffer{};
+		mem::RingBuffer           _buffer;
+		file::bdf_record_header_t _bdfHeaders[config::BHI160::CHANNEL_COUNT];
 	};
 }

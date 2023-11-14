@@ -2,9 +2,6 @@
 
 // external
 #include "esp_util/i2cDevice.hpp"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 // std
 #include <chrono>
 // internal

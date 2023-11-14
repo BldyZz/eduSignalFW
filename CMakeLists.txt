@@ -19,6 +19,9 @@ message(FATAL_ERROR "Make sure you have installed the vscode ESP-IDF Espressif-E
 "Additionally the esp-idf environment-variable 'IDF_PATH' needs to be defined."
 "For example: Under Windows 'IDF_PATH' evaluates to '%USERPROFILE%\esp\esp-idf'.")
 endif()
+
+# This example uses an extra component for common functions such as Wi-Fi and Ethernet connection.
+list(APPEND EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/protocol_examples_common)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 # Main Project

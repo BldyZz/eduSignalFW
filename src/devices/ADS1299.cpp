@@ -7,13 +7,9 @@
 
 #include <array>
 #include <algorithm>
-#include <functional>
 #include <cstdio>
 
 #include "ADS1299.hpp"
-
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-#include "esp_log.h"
 
 namespace device
 {
@@ -174,8 +170,27 @@ namespace device
 	{
 		_state       = State::Reset;
 
-		_ecgBuffer   = mem::RingBuffer(_mutexBuffer, _ecg, 1, config::ADS1299::CHANNEL_COUNT);
-		_noiseBuffer = mem::RingBuffer(_mutexBuffer + 1, _noise, 2, config::ADS1299::CHANNEL_COUNT);
+		// Create BDF-Headers
+		for(int header = 0; header < config::ADS1299::CHANNEL_COUNT; header++)
+		{
+			char label[sizeof(config::ADS1299::LABEL) + 1 + 3 + 1];
+			DISCARD std::snprintf(label, std::size(label), "%s %1d", config::ADS1299::LABEL, header + 1);
+			create_record_header(&_bdfHeaders[header],
+			                     label,
+			                     config::ADS1299::TRANSDUCER_TYPE,
+			                     config::ADS1299::PHYSICAL_DIMENSION,
+			                     config::ADS1299::PHYSICAL_MINIMUM,
+			                     config::ADS1299::PHYSICAL_MAXIMUM,
+			                     config::ADS1299::DIGITAL_MINIMUM,
+			                     config::ADS1299::DIGITAL_MAXIMUM,
+			                     config::ADS1299::PRE_FILTERING,
+			                     config::ADS1299::ECG_SAMPLES_IN_RING_BUFFER
+			);
+		}
+
+		// Create ring buffers.
+		_ecgBuffer   = mem::RingBuffer(_mutexBuffer, _ecg, sizeof(voltage_t), std::size(_ecg), config::ADS1299::CHANNEL_COUNT, _bdfHeaders, config::ADS1299::NODES_IN_BDF_RECORD);
+		_noiseBuffer = mem::RingBuffer(_mutexBuffer + 1, _noise, sizeof(voltage_t), std::size(_noise), config::ADS1299::CHANNEL_COUNT, nullptr, 0);
 
 		gpio_set_direction(config::ADS1299::RESET_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
@@ -390,19 +405,19 @@ namespace device
 	{
 		static constexpr util::byte dataRate = [] -> util::byte
 		{
-			if constexpr(config::ADS1299::DATA_RATE == 250)
+			if constexpr(config::ADS1299::SAMPLE_RATE == 250)
 				return Config1Flags::DR_110;
-			else if constexpr(config::ADS1299::DATA_RATE == 500)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 500)
 				return Config1Flags::DR_101;
-			else if constexpr(config::ADS1299::DATA_RATE == 1'000)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 1'000)
 				return Config1Flags::DR_100;
-			else if constexpr(config::ADS1299::DATA_RATE == 2'000)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 2'000)
 				return Config1Flags::DR_011;
-			else if constexpr(config::ADS1299::DATA_RATE == 4'000)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 4'000)
 				return Config1Flags::DR_010;
-			else if constexpr(config::ADS1299::DATA_RATE == 8'000)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 8'000)
 				return Config1Flags::DR_001;
-			else if constexpr(config::ADS1299::DATA_RATE == 16'000)
+			else if constexpr(config::ADS1299::SAMPLE_RATE == 16'000)
 				return Config1Flags::DR_000;
 		}();
 		

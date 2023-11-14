@@ -67,7 +67,7 @@
     <NMakeOutput>eduSignalFW.exe</NMakeOutput>
     <NMakeCleanCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe run -t clean</NMakeCleanCommandLine>
     <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\freertos\FreeRTOS-Kernel\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\esp_system\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\log\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\espcoredump\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\nvs_flash\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++20</AdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -75,7 +75,7 @@
     <NMakeOutput>eduSignalFW.exe</NMakeOutput>
     <NMakeCleanCommandLine>$(USERPROFILE)\.platformio\penv\Scripts\pio.exe run -t clean</NMakeCleanCommandLine>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeIncludeSearchPath>$(ProjectDir)include\;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\*\*\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\freertos\FreeRTOS-Kernel\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\esp_system\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\log\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\espcoredump\include;$(USERPROFILE)\.platformio\packages\framework-espidf\components\nvs_flash\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++20</AdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -148,6 +148,7 @@
     <ClInclude Include="src\tasks\telemetry_transmitter.h" />
     <ClInclude Include="src\util\defines.h" />
     <ClInclude Include="src\util\literals.h" />
+    <ClInclude Include="src\util\string_operations.h" />
     <ClInclude Include="src\util\time.h" />
     <ClInclude Include="src\util\types.h" />
     <ClInclude Include="src\util\utils.h" />

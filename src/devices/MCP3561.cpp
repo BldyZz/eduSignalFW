@@ -63,14 +63,15 @@ namespace device
 	};
 
 	MCP3561::MCP3561(esp::spiHost<config::MCP3561::Config> const& bus)
-		: esp::spiDevice<config::MCP3561::Config, config::MCP3561::SPI_MAX_TRANSACTION_LENGTH>(bus, config::MCP3561::CLOCK_SPEED, config::MCP3561::CS_PIN, config::MCP3561::SPI_MODE),
-		_errorCounter(0)
+		: esp::spiDevice<config::MCP3561::Config, config::MCP3561::SPI_MAX_TRANSACTION_LENGTH>(
+			  bus, config::MCP3561::CLOCK_SPEED, config::MCP3561::CS_PIN, config::MCP3561::SPI_MODE),
+		  _errorCounter(0), _mutexBuffer()
 	{
 	}
 
 	void MCP3561::Init()
 	{
-		_buffer = mem::RingBuffer(&_mutexBuffer, _output, config::MCP3561::ID);
+		_buffer = mem::RingBuffer(&_mutexBuffer, _output, sizeof(dc_t), std::size(_output), config::MCP3561::CHANNEL_COUNT, nullptr, NULL);
 		gpio_set_direction(config::MCP3561::IRQ_PIN, GPIO_MODE_INPUT);
 		PRINTI("[MCP3561:]", "Initialization complete.\n");
 	}

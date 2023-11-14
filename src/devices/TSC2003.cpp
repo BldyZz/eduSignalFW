@@ -1,6 +1,5 @@
 // external
 // std
-#include <functional>
 #include <cstdio>
 // internal
 #include "../util/utils.h"

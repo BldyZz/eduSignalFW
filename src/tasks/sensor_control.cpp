@@ -16,7 +16,7 @@
 
 namespace sys
 {
-	void sensor_control_task(WRITE_ONLY void* array)
+	void sensor_control_task(WRITE_ONLY void* view)
 	{
 		std::printf("[SensorControlTask:] Initializing...\n");
 
@@ -44,7 +44,7 @@ namespace sys
 		while(!pulseOxiMeter.IsReady()) pulseOxiMeter.Handler();
 
 		// ReSharper disable once CppTooWideScope	
-		mem::RingBuffer* sensor_buffers[] =
+		mem::RingBufferView::handle sensor_buffers[] =
 		{
 			pulseOxiMeter.RingBuffer(),
 			ecg.ECGRingBuffer(),
@@ -53,11 +53,7 @@ namespace sys
 		};
 
 		// Pass back ring buffer. 
-		*static_cast<mem::RingBufferArray*>(array) = mem::RingBufferArray
-		{
-			.size    = std::size(sensor_buffers),
-			.buffers = sensor_buffers
-		};
+		*static_cast<mem::RingBufferView*>(view) = mem::RingBufferView(sensor_buffers, std::size(sensor_buffers));
 
 		// Timer Create
 

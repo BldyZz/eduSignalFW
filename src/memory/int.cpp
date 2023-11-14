@@ -1,101 +1,107 @@
 #include "int.h"
 
+#include "../util/defines.h"
+
 namespace mem
 {
-	uint24_t::uint24_t()
-	{
-	}
-
 	uint24_t::uint24_t(uint24_t const& other)
 	{
-		u_ms_16 = other.u_ms_16;
-		u_ls_8  = other.u_ls_8;
+		operator=(other);
 	}
 
 	uint24_t& uint24_t::operator=(uint24_t const& other)
 	{
-		u_ms_16 = other.u_ms_16;
-		u_ls_8  = other.u_ls_8;
+		_value[0] = other._value[0];
+		_value[1] = other._value[1];
+		_value[2] = other._value[2];
 		return *this;
 	}
 
 	uint24_t::uint24_t(uint32_t value)
 	{
-		std::memcpy(_value, &value, util::total_size(_value));
+		operator=(value);
 	}
 
 	uint24_t& uint24_t::operator=(uint32_t value)
 	{
-		std::memcpy(_value, &value, util::total_size(_value));
+		_value[0] = value & 0xFF;
+		_value[1] = (value & 0xFF00) >> BYTES_TO_BITS(1);
+		_value[2] = (value & 0xFF0000) >> BYTES_TO_BITS(2);
 		return *this;
 	}
 
 
 
-	int24_t::int24_t()
-	{
-	}
+
+
+
+
 
 	int24_t::int24_t(const int24_t& other)
 	{
-		u_ms_16 = other.u_ms_16;
-		u_ls_8  = other.u_ls_8; 
+		operator=(other);
 	}
 
 	int24_t& int24_t::operator=(int24_t const& other)
 	{
-		u_ms_16 = other.u_ms_16;
-		u_ls_8  = other.u_ls_8; 
+		_value[0] = other._value[0];
+		_value[1] = other._value[1];
+		_value[2] = other._value[2];
 		return *this;
 	}
 
 	int24_t::int24_t(int32_t value)
 	{
-		std::memcpy(_value, &value, util::total_size(_value)); // truncation
+		_value[0] = value & 0xFF;
+		_value[1] = (value & 0xFF00) >> BYTES_TO_BITS(1);
+		_value[2] = (value & 0xFF0000) >> BYTES_TO_BITS(2);
 	}
 
 	int24_t::int24_t(const int16_t& value)
 	{
-		s_ls_16 = value;
-		u_ms_8  = value & 0x8000 ? 0xFF : 0x00;
+		_value[0] = value & 0xFF;
+		_value[1] = (value & 0xFF00) >> BYTES_TO_BITS(1);
+		_value[2] = value < 0 ? 0xFF : 0x00;
 	}
 
 	int24_t::int24_t(const int8_t& value)
 	{
-		u_ms_16 = value & 0x80 ? 0xFFFF : 0x0000;
-		s_ls_8 = value;
+		operator=(value);
 	}
 
 	int24_t::int24_t(const uint8_t& value)
 	{
-		u_ms_16 = 0x0000;
-		u_ls_8  = value;
+		operator=(value);
 	}
 
 	int24_t& int24_t::operator=(uint32_t value)
 	{
-		value &= 0x0007'FFFF;
-		std::memcpy(_value, &value, util::total_size(_value));
+		_value[0] = value & 0xFF;
+		_value[1] = (value & 0xFF00) >> BYTES_TO_BITS(1);
+		_value[2] = (value & 0x7F0000) >> BYTES_TO_BITS(2);
 		return *this;
 	}
 	int24_t& int24_t::operator=(const uint16_t& value)
 	{
-		u_ls_16 = value;
-		u_ms_8  = 0;
+		_value[0] = value & 0xFF;
+		_value[1] = value & 0xFF >> BYTES_TO_BITS(1);
+		_value[2] = 0;
 		return *this;
 	}
 
 	int24_t& int24_t::operator=(const int8_t& value)
 	{
-		u_ms_16 = value & 0x80 ? 0xFFFF : 0x0000;
-		s_ls_8  = value;
+		_value[0] = value & 0xFF;
+		_value[1] = value < 0 ? 0xFF : 0x00;
+		_value[2] = value < 0 ? 0xFF : 0x00;
 		return *this;
 	}
 
 	int24_t& int24_t::operator=(const uint8_t& value)
 	{
-		u_ms_16 = 0x0000;
-		u_ls_8  = value;
+		_value[0] = value;
+		_value[1] = 0;
+		_value[2] = 0;
 		return *this;
 	}
 }

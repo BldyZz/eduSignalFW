@@ -5,6 +5,7 @@
 #include "../util/types.h"
 #include "../memory/int.h"
 #include "../memory/ring_buffer.h"
+#include "../network/bdf_plus.h"
 // external
 #include <esp_util/spiDevice.hpp>
 #include <esp_util/spiHost.hpp>
@@ -60,13 +61,14 @@ namespace device
 		void SetCustomSettings();
 
 		State             _state;
-		voltage_t         _noise[config::ADS1299::CHANNEL_COUNT * config::ADS1299::NOISE_SAMPLES_IN_RINGBUFFER]; // Noise data (Not implemented)
-		voltage_t         _ecg[config::ADS1299::CHANNEL_COUNT * config::ADS1299::ECG_SAMPLES_IN_RINGBUFFER];     // Electrocardiography data
+		voltage_t         _noise[config::ADS1299::CHANNEL_COUNT * config::ADS1299::NOISE_SAMPLES_IN_RING_BUFFER]; // Noise data (Not implemented)
+		voltage_t         _ecg[config::ADS1299::CHANNEL_COUNT * config::ADS1299::ECG_SAMPLES_IN_RING_BUFFER];     // Electrocardiography data
 		uint32_t          _statusBits;
 		size_t            _resetCounter;
 		mem::RingBuffer	  _ecgBuffer;
 		mem::RingBuffer	  _noiseBuffer;
 		StaticSemaphore_t _mutexBuffer[2];
+		file::bdf_record_header_t _bdfHeaders[config::ADS1299::CHANNEL_COUNT];
 	};
 
 	constexpr util::byte ADS1299::RREG(util::byte registerAddress)

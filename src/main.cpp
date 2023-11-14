@@ -27,28 +27,28 @@ TaskHandle_t TelemetryTransmitter = nullptr;
 extern "C"
 void app_main() 
 {
-    esp_core_dump_init();
-	esp_core_dump_summary_t* summary = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
-	if (summary) {
-		esp_log_level_set("esp_core_dump_elf", ESP_LOG_VERBOSE); // so that func below prints stuff.. but doesn't actually work, have to set logging level globally through menuconfig
-		printf("Retrieving core dump summary..\n");
-		esp_err_t err = esp_core_dump_get_summary(summary);	
-		if (err == ESP_OK) {
-			//get summary function already pints stuff
-			printf("Getting core dump summary ok.\n");
-			//todo: do something with dump summary
-		} else {
-			printf("Getting core dump summary not ok. Error: %d\n", (int) err);
-			printf("Probably no coredump present yet.\n");
-			printf("esp_core_dump_image_check() = %d\n", esp_core_dump_image_check());
-		}		
-		free(summary);
-	}
-	fflush(stdout);
+    //  esp_core_dump_init();
+	//  esp_core_dump_summary_t* summary = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+	//  if (summary) {
+	//  	esp_log_level_set("esp_core_dump_elf", ESP_LOG_VERBOSE); // so that func below prints stuff.. but doesn't actually work, have to set logging level globally through menuconfig
+	//  	printf("Retrieving core dump summary..\n");
+	//  	esp_err_t err = esp_core_dump_get_summary(summary);	
+	//  	if (err == ESP_OK) {
+	//  		//get summary function already pints stuff
+	//  		std::printf("Getting core dump summary ok.\n");
+	//  		//todo: do something with dump summary
+	//  	} else {
+	//  		std::printf("Getting core dump summary not ok. Error: %d\n", (int) err);
+	//  		std::printf("Probably no coredump present yet.\n");
+	//  		std::printf("esp_core_dump_image_check() = %d\n", esp_core_dump_image_check());
+	//  	}		
+	//  	free(summary);
+	//  }
+	//  fflush(stdout);
 
     esp_util::nvs_init(); 
-    mem::RingBufferArray buffers;
-     
+    mem::RingBufferView buffers;
+
     BaseType_t result;
     result = xTaskCreate(
         sys::sensor_control_task, 
@@ -61,9 +61,9 @@ void app_main()
 
     assert(result == pdPASS && "[SensorControlTask:] **Fatal** Could not allocate required memory!");
 
-    while(buffers.size == 0) { /* Do nothing */ } // Sensor Controller Task has to write  to tmp if ready
+    while(buffers.size() == 0) { /* Do nothing */ } // Sensor Controller Task has to write  to tmp if ready
 
-    ESP_LOGI("[SensorControlTask:]", "Task created successfully!");
+    PRINTI("[SensorControlTask:]", "Task created successfully!");
 
     sys::telemetry_transmitter_task(&buffers);
         

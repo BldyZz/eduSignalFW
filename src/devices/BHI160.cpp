@@ -4,12 +4,8 @@
 #include "BHI160.hpp"
 #include "BHI160_Firmware.hpp"
 
-#include <bit>
 #include <cstdio>
 #include <cstring>
-
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-#include "esp_log.h"
 
 namespace device
 {
@@ -82,7 +78,32 @@ namespace device
 	void BHI160::Init()
 	{
 		_state = State::Reset;
-		_buffer = mem::RingBuffer(&_mutexBuffer, _acceleration, config::BHI160::ID, 4);
+
+		// Create BDF-Headers
+		for(int header = 0; header < config::BHI160::CHANNEL_COUNT; header++)
+		{
+			char label[sizeof(config::BHI160::LABEL) + 1 + 3 + 1];
+			DISCARD std::snprintf(label, std::size(label), "%s %1d", config::BHI160::LABEL, header + 1);
+			create_record_header(&_bdfHeaders[header],
+								 label,
+								 config::BHI160::TRANSDUCER_TYPE,
+								 config::BHI160::PHYSICAL_DIMENSION,
+								 config::BHI160::PHYSICAL_MINIMUM,
+								 config::BHI160::PHYSICAL_MAXIMUM,
+								 config::BHI160::DIGITAL_MINIMUM,
+								 config::BHI160::DIGITAL_MAXIMUM,
+								 config::BHI160::PRE_FILTERING,
+								 config::BHI160::SAMPLE_RATE
+			);
+		}
+		// Create ring buffer
+		_buffer = mem::RingBuffer(&_mutexBuffer, 
+								  _acceleration, 
+								  sizeof(acceleration_storage_t), 
+								  std::size(_acceleration),
+								  config::BHI160::CHANNEL_COUNT, 
+								  _bdfHeaders, 
+								  config::BHI160::NODES_IN_BDF_RECORD);
 		
 		gpio_set_direction(config::BHI160::INTERRUPT_PIN, GPIO_MODE_INPUT);
 
@@ -228,23 +249,20 @@ namespace device
 		this->write(util::to_span(parameterPageSelectionPackage));
 
 
-		static constexpr std::uint16_t sampleRate = 50;
-		static constexpr std::uint16_t latency = 40;
-		static constexpr std::uint16_t dynamicRange = 0;
 		static constexpr std::uint16_t sensitivity = 0;
 		static constexpr std::uint8_t  sensorID = 65;
 
-
+		// Register - Sample Rate 16 Bit - Latency ms 16Bit
 		static constexpr util::byte sensorConfig[] = {
 		  Register::Parameter_Write_Buffer,
-		  (sampleRate & 0xFF),
-		  (sampleRate & 0xFF00) >> 8,
-		  (latency & 0xFF),
-		  (latency & 0xFF00) >> 8,
-		  (dynamicRange & 0xFF),
-		  (dynamicRange & 0xFF00) >> 8,
-		  (sensitivity & 0xFF),
-		  (sensitivity & 0xFF00) >> 8};
+		  (config::BHI160::SAMPLE_RATE & 0xFF),
+		  (config::BHI160::SAMPLE_RATE & 0xFF00) >> BYTES_TO_BITS(1),
+		  (config::BHI160::LATENCY & 0xFF),
+		  (config::BHI160::LATENCY & 0xFF00) >> BYTES_TO_BITS(1),
+		  (config::BHI160::DYNAMIC_RANGE & 0xFF),
+		  (config::BHI160::DYNAMIC_RANGE & 0xFF00) >> BYTES_TO_BITS(1),
+		  (config::BHI160::SENSITIVITY & 0xFF),
+		  (config::BHI160::SENSITIVITY & 0xFF00) >> BYTES_TO_BITS(1)};
 		this->write(util::to_span(sensorConfig));
 		std::uint8_t rxData[8];
 		this->read(Register::Parameter_Write_Buffer, util::total_size(rxData), rxData);

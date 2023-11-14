@@ -10,16 +10,9 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "lvgl.h"
 
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-#include "esp_log.h"
-
-#include <cstdio>
-#include <cmath>
 #include <cstdint>
-#include <limits>
 #include <ranges>
 #include <span>
 
