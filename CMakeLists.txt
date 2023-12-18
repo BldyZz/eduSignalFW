@@ -1,12 +1,14 @@
-#***********************************************
-#	Edu Signal Firmware						   *
-#***********************************************
-cmake_minimum_required(VERSION 3.16.0)
+################################################
+#	Edu Signal Firmware						   #
+################################################
+cmake_minimum_required(VERSION 3.13)
 
 # C++20 with Compiler Extensions
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
+
+set(EXTRA_COMPONENT_DIRS main)
 
 # Add additional projects
 #set(EXTRA_COMPONENT_DIRS 
@@ -16,8 +18,8 @@ set(CMAKE_CXX_EXTENSIONS ON)
 # Include ESP-IDF. 
 if(NOT DEFINED ENV{IDF_PATH})
 message(FATAL_ERROR "Make sure you have installed the vscode ESP-IDF Espressif-Extension globally."
-"Additionally the esp-idf environment-variable 'IDF_PATH' needs to be defined."
-"For example: Under Windows 'IDF_PATH' evaluates to '%USERPROFILE%\esp\esp-idf'.")
+    "Additionally the esp-idf environment-variable 'IDF_PATH' needs to be defined."
+    "For example: Under Windows 'IDF_PATH' evaluates to '%USERPROFILE%\esp\esp-idf'.")
 endif()
 
 # This example uses an extra component for common functions such as Wi-Fi and Ethernet connection.

@@ -11,8 +11,6 @@ template<typename I2CConfig>
 struct i2cMaster {
 private:
 public:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
     explicit i2cMaster()
 	{
         i2c_config_t busConfig = {
@@ -36,6 +34,5 @@ public:
         gpio_set_level(I2CConfig::PowerPin, 1);
         gpio_set_level(I2CConfig::PowerPin, 0);
     }
-#pragma GCC diagnostic pop
 };
 }   // namespace esp
