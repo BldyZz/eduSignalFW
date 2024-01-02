@@ -21,11 +21,14 @@ namespace device
 		explicit ADS1299(esp::spiHost<config::ADS1299::Config> const& bus);
 
 		void Init();
-		void IRAM_ATTR Handler();
 		bool IsReady() const;
+		void CaptureData();
+		bool HasData() const;
+		void InsertPadding();
 
 		mem::RingBuffer* ECGRingBuffer();
 		mem::RingBuffer* NoiseRingBuffer();
+
 	private:
 		enum class State : util::byte;
 		struct Command;
@@ -55,7 +58,6 @@ namespace device
 		static constexpr util::byte RREG(util::byte registerAddress);
 		static constexpr util::byte WREG(util::byte registerAddress);
 
-		void CaptureData();
 
 		void Reset();
 		void PowerUp();

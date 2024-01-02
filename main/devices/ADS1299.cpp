@@ -181,9 +181,31 @@ namespace device
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_DRDY_PIN, GPIO_MODE_INPUT);
 
-		while(!IsReady())
-			Handler();
-
+		bool ready = false;
+		while(!ready)
+		{
+			Reset();
+			PowerUp();
+			WaitForPower();
+			if(IsPoweredUp())
+			{
+				ConfigureExternalReference();
+				PRINTI("[ADS1299:]", "Communication established!\n");
+				_resetCounter = 0;
+				ready = true;
+				_state = State::SetTestSignals;
+			} else
+			{
+				PRINTI("[ADS1299:]", "Could not set up device! Restarting...\n");
+				if(_resetCounter++ > 10)
+				{
+					PRINTI("[ADS1299:]", "Too many errors... Shutting down!\n");
+					PRINTI("[ADS1299:]", "Check all voltages on Chip! Maybe analog or digital supply missing!\n");
+					std::exit(-1);
+				}
+			}
+		}
+		SetTestSignals(); // Wait for internal Reference to settle
 		PRINTI("[ADS1299:]", "Initialization successful.\n");
 	}
 
@@ -194,6 +216,7 @@ namespace device
 		std::array<util::byte, TRANSACTION_SIZE> txData{0x00};
 
 		sendBlocking(txData, rxData);
+#if 0
 		// Reverse data
 		auto first = rxData.begin();
 		for(util::byte channel = 0; channel < config::ADS1299::CHANNEL_COUNT; ++channel, first = std::next(first, sizeof(voltage_t)))
@@ -205,121 +228,23 @@ namespace device
 		}
 		const auto data = static_cast<voltage_t*>(_ecgBuffer.CurrentWrite());
 		std::memcpy(data->_value, rxData.data(), sizeof(ecg_t));
+#endif
 		_ecgBuffer.WriteAdvance();
-		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::ADS1299::SAMPLE_RATE));
-
-		//_ecgBuffer.Lock();
-		//DEBUG_VOLATILE util::byte* target_buffer = static_cast<util::byte*>(data);
-		//DEBUG_VOLATILE auto rxPtr = rxData.data() + sizeof(status_t);
-		//for(util::byte channel = 0; channel < buf.ChannelCount(); channel++, target_buffer = static_cast<util::byte*>(buf.ChangeChannel(data, channel)))
-		//{
-		//	std::copy(rxPtr, rxPtr + sizeof(voltage_t), target_buffer);
-		//	rxPtr += sizeof(voltage_t);
-		//}
-		//buf.Unlock();
-
-		//std::int32_t tempStatusBits;
-		//std::memcpy(&tempStatusBits, &rxData[0], 3);
-		//_statusBits = tempStatusBits;
 	}
 
-	void ADS1299::Handler()
+	bool ADS1299::HasData() const
 	{
-		switch (_state)
-		{
-		case State::Reset:
-			Reset();
-			_state = State::PowerUp;
-			break;
-		case State::PowerUp:
-			PowerUp();
-			_state = State::WaitForPower;
-			break;
-		case State::WaitForPower:
-			WaitForPower();
-			_state = State::SetExternalReference;
-			break;
-		case State::SetExternalReference:
-			if (IsPoweredUp())
-			{
-				ConfigureExternalReference();
-				PRINTI("[ADS1299:]", "Communication established!\n");
-				_resetCounter = 0;
-				_state = State::SetTestSignals; // Wait for internal Reference to settle
-			}
-			else
-			{
-				PRINTI("[ADS1299:]", "Could not set up device! Restarting...\n");
-				_resetCounter++;
-				_state = _resetCounter > 10 ? State::FatalError : State::Reset;
-			}
-			break;
-		case State::SetTestSignals:
-			SetTestSignals();
-			_state = State::Idle;
-			break;
-		case State::SetNoiseData:
-			SetNoiseData();
-			_state = State::Idle;
-			break;
-		case State::CaptureNoiseData:
-			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0)
-			{
-				// TODO: sample more noise data and check noise
-				CaptureData();
-				_state = State::SetTestSignals;
-			}
-			break;
-		case State::CaptureTestData:
-			if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0)
-			{
-				// TODO: Capture Data and Test Signals
-				CaptureData();
-				_state = State::Idle;
-				//_state = State::SetCustomSettings;
-			}
-			break;
-		case State::SetCustomSettings:
-			SetCustomSettings();
-			PRINTI("[ADS1299:]", "Config complete!\n");
-			_state = State::Idle;
-			break;
-		case State::Idle:
-			{
-				const timepoint_t now = timepoint_t::clock::now();
-				if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 1)
-				{
-					/*
-					if(now >= _nextTime)
-					{
-						*static_cast<ecg_t*>(_ecgBuffer.CurrentWrite()) = ecg_t
-						{
-							.channels = {{(int32_t)64'000}, {(int32_t)64'000}, {(int32_t)64'000}, {(int32_t)64'000}}
-						};
-						_ecgBuffer.WriteAdvance()
-						_nextTime = now + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::ADS1299::SAMPLE_RATE));
-					}
-					*/
-					break;
-				}
-				_state = State::CaptureData;
-			}
-			nobreak;
-		case State::CaptureData:
-			CaptureData();
-			_state = State::Idle;
-			break;
-		case State::FatalError:
-			PRINTI("[ADS1299:]", "Too many errors... Shutting down!\n");
-			PRINTI("[ADS1299:]", "Check all voltages on Chip! Maybe analog or digital supply missing!\n");
-			_state = State::Shutdown;
-			break;
-		case State::Shutdown:
-			break;
-		default:;
-		}
+		return gpio_get_level(config::ADS1299::N_DRDY_PIN) == 0;
+	}
 
-		// xSemaphoreGive(_semaphore);
+	void ADS1299::InsertPadding()
+	{
+#if 0
+		*static_cast<ecg_t*>(_ecgBuffer.CurrentWrite()) = ecg_t
+		{
+		};
+#endif
+		_ecgBuffer.WriteAdvance();
 	}
 
 	bool ADS1299::IsReady() const
@@ -329,31 +254,21 @@ namespace device
 
 	mem::RingBuffer* ADS1299::ECGRingBuffer()
 	{
+		if(!_ecgBuffer.IsValid())
+		{
+			PRINTI("[ADS1299:]", "ECG ring buffer was not initialized!\n");
+		}
 		return &_ecgBuffer;
 	}
 
 	mem::RingBuffer* ADS1299::NoiseRingBuffer()
 	{
-		return &_noiseBuffer;
-	}
-
-	//mem::RingBuffer* ADS1299::ECGRingBuffer()
-	//{
-	//	if(!_ecgBuffer.IsValid())
-	//	{
-	//		PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
-	//	}
-	//	return &_ecgBuffer;
-	//}
-
-	/*mem::RingBuffer* ADS1299::NoiseRingBuffer()
-	{
 		if(!_noiseBuffer.IsValid())
 		{
-			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
+			PRINTI("[ADS1299:]", "Noise ring buffer was not initialized!\n");
 		}
 		return &_noiseBuffer;
-	}*/
+	}
 
 	void ADS1299::Reset()
 	{

@@ -31,8 +31,8 @@ namespace config
 {
 	using ascii_t = char;
 
-	static constexpr float DURATION_OF_MEASUREMENT = 0.4f;
-	static constexpr float OVERFLOW_SAFETY_FACTOR = 2.0f;
+	static constexpr float DURATION_OF_MEASUREMENT = 0.2f; // in seconds
+	static constexpr float OVERFLOW_SAFETY_FACTOR = 4.0f;
 
 	template<typename T>
 	consteval size_t ceil_to_power_2(T value)
@@ -46,16 +46,16 @@ namespace config
 		return static_cast<long>(1'000'000.f * (1 / sampleRate)) + deviation_delta;
 	}
 
-	consteval long sample_rate_to_ms(float sampleRate)
+	consteval uint32_t sample_rate_to_ms(float sampleRate)
 	{
-		return static_cast<long>(1'000.f / sampleRate);
+		return static_cast<uint32_t>(1'000.f / sampleRate);
 	}
 	
 	struct ADS1299
 	{
 		using Config = BoardSPIConfig;
 
-		static constexpr size_t  SAMPLE_RATE         = 125; // in SPS
+		static constexpr size_t  SAMPLE_RATE         = 250; // in SPS
 		// BDF Info
 		static constexpr size_t      CHANNEL_COUNT                      = 4;
 		inline static const ascii_t* LABELS[CHANNEL_COUNT]              = {"ECG Ch1", "ECG Ch2", "ECG Ch3", "ECG Ch4"};
@@ -140,6 +140,7 @@ namespace config
 	{
 		using Config = BoardSPIConfig;
 
+		static constexpr uint16_t	SAMPLE_RATE = 50; // in SPS
 		static constexpr size_t     ID                         = 3;
 		static constexpr size_t     CHANNEL_COUNT              = 1;
 

@@ -20,9 +20,13 @@ namespace device
 		BHI160();
 
 		void             Init();
-		void IRAM_ATTR   Handler();
 		bool             IsReady() const;
 		mem::RingBuffer* RingBuffer();
+		bool             HasData() const;
+		void             GetRemainingFIFOSize();
+		void             GetData();
+		void             InsertPadding();
+
 	private:
 
 		enum class State : util::byte;
@@ -36,8 +40,6 @@ namespace device
 		void UploadFirmware();
 		void StartCPU();
 		void ConfigureDevices();
-		void GetRemainingFIFOSize();
-		void GetData();
 		void PrintVersionAndStatus();
 
 		using acceleration_storage_t = mem::int24_t;

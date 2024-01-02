@@ -89,8 +89,26 @@ namespace device
 
 		gpio_set_direction(config::BHI160::INTERRUPT_PIN, GPIO_MODE_INPUT);
 
-		while(!IsReady())
-			Handler();
+		PRINTI("[BHI160:]", "Resetting...\n");
+		Reset();
+
+		if(gpio_get_level(config::BHI160::INTERRUPT_PIN))
+		{
+			StartRAMPatch();
+			_state = State::FirmwareUpload;
+			PRINTI("[BHI160:]", "Uploading firmware...\n");
+		}
+
+		UploadFirmware();
+		StartCPU();
+		if(gpio_get_level(config::BHI160::INTERRUPT_PIN))
+		{
+			PRINTI("[BHI160:]", "Configuring device...\n");
+			PrintVersionAndStatus();
+			_state = State::Configuration;
+		}
+
+		ConfigureDevices();
 
 		PRINTI("[BHI160:]", "Initialization successful.\n");
 	}
@@ -122,6 +140,7 @@ namespace device
 		case Event::Accelerometer:
 		case Event::AccelerometerWakeUp:
 		{
+#if 0
 			*static_cast<acceleration_t*>(_buffer.CurrentWrite()) = acceleration_t
 			{
 				.X = mem::int24_t(static_cast<int16_t>(package[5] | package[6] << 8)), // X
@@ -129,9 +148,10 @@ namespace device
 				.Z = mem::int24_t(static_cast<int16_t>(package[1] | package[2] << 8)), // Z
 				.status = mem::int24_t(static_cast<int16_t>(package[7])),                  // Status
 			};
+#endif
 			_buffer.WriteAdvance();
 			HandleData(std::span{package.begin() + 8, package.end()});
-			_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
+			_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::BHI160::SAMPLE_RATE));
 		}
 		break;
 
@@ -257,6 +277,11 @@ namespace device
 
 	void BHI160::GetData()
 	{
+		if(_bytesInFIFO == 0)
+		{
+			GetRemainingFIFOSize();
+		}
+
 		static constexpr uint16_t MAXIMUM_BUFFER_SIZE = 50;
 		util::byte rxData[MAXIMUM_BUFFER_SIZE];
 
@@ -268,6 +293,7 @@ namespace device
 		} else
 		{
 			bytesToSend = _bytesInFIFO;
+			_bytesInFIFO = 0;
 			_state = State::Idle;
 		}
 		this->read(Register::Buffer_out, bytesToSend, rxData);
@@ -288,6 +314,21 @@ namespace device
 		HandleData(printSpan);
 	}
 
+	void BHI160::InsertPadding()
+	{
+#if 0
+		*static_cast<acceleration_t*>(_buffer.CurrentWrite()) = acceleration_t
+		{
+			.X = mem::int24_t(static_cast<int32_t>(0)),      // X
+			.Y = mem::int24_t(static_cast<int32_t>(0)),      // Y
+			.Z = mem::int24_t(static_cast<int32_t>(0)),      // Z
+			.status = mem::int24_t(static_cast<int32_t>(0)), // Status
+		};
+#endif
+
+		_buffer.WriteAdvance();
+	}
+
 	void BHI160::PrintVersionAndStatus()
 	{
 		std::uint16_t RAMVersion;
@@ -304,82 +345,6 @@ namespace device
 		PRINTI("[BHI160:]", "ChipStatus: %02X\n", ChipStatus);
 	}
 
-	void BHI160::Handler()
-	{
-		switch(_state)
-		{
-		case State::Reset:
-			PRINTI("[BHI160:]", "Resetting...\n");
-			Reset();
-			_state = State::WaitForInterrupt1;
-			break;
-
-		case State::WaitForInterrupt1:
-			if(gpio_get_level(config::BHI160::INTERRUPT_PIN))
-			{
-				StartRAMPatch();
-				_state = State::FirmwareUpload;
-				PRINTI("[BHI160:]", "Uploading firmware...\n");
-			}
-			break;
-
-		case State::FirmwareUpload:
-			UploadFirmware();
-			_state = State::ModeSwitch;
-			break;
-
-		case State::ModeSwitch:
-			StartCPU();
-			_state = State::WaitForInterrupt2;
-			break;
-
-		case State::WaitForInterrupt2:
-			if(gpio_get_level(config::BHI160::INTERRUPT_PIN))
-			{
-				PRINTI("[BHI160:]", "Configuring device...\n");
-				PrintVersionAndStatus();
-				_state = State::Configuration;
-			}
-			break;
-
-		case State::Configuration:
-			ConfigureDevices();
-			_state = State::Idle;
-			break;
-
-		case State::Idle:
-		{
-			if(gpio_get_level(config::BHI160::INTERRUPT_PIN) == 0)
-			{
-				const timepoint_t now = timepoint_t::clock::now();
-				if(now > _nextTime)
-				{
-					*static_cast<acceleration_t*>(_buffer.CurrentWrite()) = acceleration_t
-					{
-						.X = (int32_t)0,
-						.Y = (int32_t)0,
-						.Z = (int32_t)0,
-						.status = (int32_t)0
-					};
-					_buffer.WriteAdvance();
-					_nextTime = now + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
-				}
-				break;
-			}
-
-			GetRemainingFIFOSize();
-
-			if(_bytesInFIFO == 0)
-				break;
-			_state = State::GetData;
-			nobreak;
-		}
-		case State::GetData:
-			GetData();
-			break;
-		}
-	}
-
 	bool BHI160::IsReady() const
 	{
 		return _state >= State::Idle;
@@ -392,5 +357,10 @@ namespace device
 			PRINTI("[BHI160:]", "Ring buffer was not initialized!\n");
 		}
 		return &_buffer;
+	}
+
+	bool BHI160::HasData() const
+	{
+		return (gpio_get_level(config::BHI160::INTERRUPT_PIN) == 1) | _bytesInFIFO;
 	}
 }

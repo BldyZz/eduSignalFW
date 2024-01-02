@@ -93,11 +93,9 @@ namespace mem
 		xSemaphoreTake(_mutex, portMAX_DELAY);
 	}
 
-	void* RingBuffer::ReadAdvance(size_type advanceNNodes) noexcept
+	void RingBuffer::ReadAdvance(size_type advanceNNodes) noexcept
 	{
-		const auto advance_ptr =  static_cast<char*>(_buffer) + _read * _nodeSize;
 		_read = (_read + advanceNNodes) % _nodeCount;
-		return advance_ptr;
 	}
 
 	void IRAM_ATTR RingBuffer::WriteAdvance() noexcept
@@ -123,6 +121,11 @@ namespace mem
 	bool RingBuffer::CanWrite() const
 	{
 		return (_write + 1) % _nodeCount != _read;
+	}
+
+	void* RingBuffer::CurrentRead() const noexcept
+	{
+		return static_cast<char*>(_buffer) + _read * _nodeSize;
 	}
 
 	bool RingBuffer::IsValid() const

@@ -73,6 +73,9 @@ namespace device
 	{
 		_buffer = mem::RingBuffer(&_mutexBuffer, _output, sizeof(dc_t), std::size(_output), config::MCP3561::CHANNEL_COUNT);
 		gpio_set_direction(config::MCP3561::IRQ_PIN, GPIO_MODE_INPUT);
+		Reset();
+		PowerUp();
+		Configure();
 		PRINTI("[MCP3561:]", "Initialization complete.\n");
 	}
 
@@ -173,40 +176,20 @@ namespace device
 		//transformedData = transformedData << 8;
 		//transformedData	 = transformedData >> 8;
 		//fmt::print("{} {:#010b}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(rxData, ", "));
-		_buffer.Lock();
+		//_buffer.Lock();
 		*static_cast<mem::int24_t*>(_buffer.CurrentWrite()) = mem::int24_t(transformedData);
 		_buffer.WriteAdvance();
-		_buffer.Unlock();
+		//_buffer.Unlock();
 	}
 
-	void MCP3561::Handler()
+	bool MCP3561::HasData() const
 	{
-		switch(_state)
-		{
-		case State::Reset:
-			Reset();
-			_state = State::PowerUp;
-			break;
-		case State::PowerUp:
-			PowerUp();
-			break;
-		case State::Config:
-			Configure();
-			_state = State::Idle;
-			break;
-		case State::Idle:
-			if(gpio_get_level(config::MCP3561::IRQ_PIN) == 0)
-			{
-				_state = State::CaptureData;
-			}
-			break;
-		case State::CaptureData:
-			CaptureData();
-			_state = State::Idle;
-			break;
-		case State::Shutdown:
-			break;
-		default:;
-		}
+		return gpio_get_level(config::MCP3561::IRQ_PIN) == 0;
+	}
+
+	void MCP3561::InsertPadding()
+	{
+		*static_cast<mem::int24_t*>(_buffer.CurrentWrite()) = mem::int24_t((int32_t)0);
+		_buffer.WriteAdvance();
 	}
 }

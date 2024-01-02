@@ -146,7 +146,7 @@
     <ClInclude Include="main\network\common.h" />
     <ClInclude Include="main\network\wifi.hpp" />
     <ClInclude Include="main\tasks\sensor_control.h" />
-    <ClInclude Include="main\tasks\task_config.h" />
+    <ClInclude Include="main\config\task.h" />
     <ClInclude Include="main\tasks\transmitter_task.h" />
     <ClInclude Include="main\util\defines.h" />
     <ClInclude Include="main\util\string_operations.h" />

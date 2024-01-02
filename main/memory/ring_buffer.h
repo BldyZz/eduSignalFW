@@ -74,7 +74,8 @@ namespace mem
 		void  Unlock() const;
 
 		bool           CanWrite() const;
-		void*          ReadAdvance(size_type advanceNNodes) noexcept;
+		void* IRAM_ATTR CurrentRead() const noexcept;
+		void          ReadAdvance(size_type advanceNNodes) noexcept;
 		void IRAM_ATTR WriteAdvance() noexcept;
 		void* IRAM_ATTR CurrentWrite() const noexcept;
 		void* ChangeChannel(void* ptr, channel_t channelIndex) const noexcept;

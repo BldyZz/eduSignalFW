@@ -72,9 +72,10 @@ namespace device
 								  sizeof(oxi_sample),
 								  std::size(_underlyingBuffer), 
 								  config::MAX30102::CHANNEL_COUNT);
-		PRINTI("[MAX30102:]", "Initialization successful.\n");
-		while(!IsReady()) 
-			Handler();
+		Reset();
+		PRINTI("[MAX30102:]", "Resetting...\n");
+		Configure();
+		PRINTI("[MAX30102:]", "Configuration successful.\n");
 	}
 
 	mem::RingBuffer* MAX30102::RingBuffer()
@@ -131,20 +132,37 @@ namespace device
 		std::ranges::reverse(rxData);
 
 		sample_t tempRed, tempInfraRed;
+
+#if 0
 		std::memcpy(&tempRed._value, rxData.data() + sizeof(sample_t), sizeof(sample_t));
 		std::memcpy(&tempInfraRed._value, rxData.data(), sizeof(sample_t));
+#endif
+
 		// sample data has a maximum width of 18 Bits, so discard the rest.
 		tempRed._value[3]	   &= 0x03;
 		tempInfraRed._value[3] &= 0x03; 
 
+#if 0
 		*static_cast<oxi_sample*>(_buffer.CurrentWrite()) = oxi_sample
 		{
 			.red = tempRed,
 			.infraRed = tempInfraRed
 		};
+#endif
 		_buffer.WriteAdvance();
 		_numberOfSamples--;
-		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
+	}
+
+	void MAX30102::InsertPadding()
+	{
+#if 0
+		*static_cast<oxi_sample*>(_buffer.CurrentWrite()) = oxi_sample
+		{
+			.red      = static_cast<uint32_t>(0),
+			.infraRed = static_cast<uint32_t>(0)
+		};
+#endif
+		_buffer.WriteAdvance();
 	}
 
 	void MAX30102::ReadBufferSize()
@@ -153,68 +171,16 @@ namespace device
 		this->read(Register::FiFoRead, 1, &ReadPointer);
 		this->read(Register::FiFoWrite, 1, &WritePointer);
 		_numberOfSamples = WritePointer - ReadPointer;
+		if(_numberOfSamples < 0)
+		{
+			_numberOfSamples += 32;
+		}
 	}
 
-	bool MAX30102::IsEmpty() const
+	bool MAX30102::HasData() 
 	{
-		return _numberOfSamples == 0;
-	}
-
-	void MAX30102::Handler()
-	{
-		switch(_state)
-		{
-		case State::Reset:
-			Reset();
-			PRINTI("[MAX30102:]", "Resetting...\n");
-			_state = State::Init;
-			break;
-		case State::Init:
-			Configure();
-			_state = State::Idle;
-			PRINTI("[MAX30102:]", "Configuration successful.\n");
-			break;
-		case State::Idle:
-		{
+		if(_numberOfSamples == 0)
 			ReadBufferSize();
-			const timepoint_t now = timepoint_t::clock::now();
-			if(IsEmpty())
-			{
-				if(now >= _nextTime)
-				{
-					//count++;
-					//static size_t     i   = 0;
-					//const mem::int24_t out = static_cast<int32_t>(10 * (i++ % config::MAX30102::NODES_IN_BDF_RECORD));
-					//
-					//
-					//if(count % 1000 == 0)PRINTI("MAX:", "count = %lu", count);
-					//*static_cast<oxi_sample*>(_buffer.WriteAdvance()) = {.red = out, .infraRed = out};
-					
-					//oxi_sample sample = {.red = {-10}, .infraRed = int32_t{-10}};
-
-					static constexpr sample_t redSample = {};
-					static constexpr sample_t infraRedSample = {};
-					*static_cast<oxi_sample*>(_buffer.CurrentWrite()) = oxi_sample{redSample, infraRedSample};
-					_buffer.WriteAdvance();
-					_nextTime = now + std::chrono::microseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
-				}
-				break;
-			}
-
-			if(_numberOfSamples < 0)
-			{
-				_numberOfSamples += 32;
-			}
-			_state = State::ReadData;
-		}
-			nobreak;
-		case State::ReadData:
-			ReadData();
-			if(_numberOfSamples == 0)
-			{
-				_state = State::Idle;
-			}
-			break;
-		}
+		return _numberOfSamples != 0;
 	}
 }

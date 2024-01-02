@@ -5,9 +5,10 @@
 
 #include "../memory/int.h"
 #include "../config/devices.h"
-#include "../tasks/task_config.h"
+#include "../config/task.h"
 #include "bdf_plus.h"
 #include "../memory/stack.h"
+#include "../util/utils.h"
 
 #include <cstdio>
 #include <freertos/FreeRTOS.h>
@@ -34,6 +35,13 @@ namespace net
 				_stackSize += sectionSize;
 			}	
 		}
+	}
+
+	void TelemetryTransmitter::TryAgain()
+	{
+		PRINTI("[Socket:]", "Closing socket\n");
+		_socket.Close();
+		_socket.Open();
 	}
 
 	bool TelemetryTransmitter::FindServer()
@@ -105,45 +113,43 @@ namespace net
 		if(received <= 0)
 		{
 			PRINTI(TELEMETRY_TAG, "Error received no request.\n");
-			return 0;
+			return -1;
 		}
 		reqRecordsBuffer[received] = '\0';
 		const int isDifferent = std::memcmp(reqRecordsBuffer, file::BDF_COMMANDS::REQ_RECORDS.data(), file::BDF_COMMANDS::REQ_RECORDS.size());
 		if(isDifferent)
 		{
 			PRINTI(TELEMETRY_TAG, "Error received invalid request.\n");
-			return 0;
+			return -1;
 		}
 		return std::strtol(reqRecordsBuffer + file::BDF_COMMANDS::REQ_RECORDS.size() + 1, nullptr, 10);
 	}
 
 	void TelemetryTransmitter::BeginTransmission(long const& numberOfMeasurements)
 	{
-		_bufferView.ResetAll();
-
+		xEventGroupSetBits(config::SensorControlEventGroup, SensorControlEvent::StartMeasurement);
 		// Send records
 		unsigned written = 0;
 		PRINTI(TELEMETRY_TAG, "Sending %ld data records.\n", numberOfMeasurements);
 		for(int measurement = 0; measurement < numberOfMeasurements; measurement++)
 		{
-			
-			
 
-			written += SendDataRecord2();
+			written += SendDataRecord();
 			PRINTI(TELEMETRY_TAG, "Send a data record.\n");
 
 		}
+		xEventGroupSetBits(config::SensorControlEventGroup, SensorControlEvent::StopMeasurement);
 		PRINTI(TELEMETRY_TAG, "Written %u bytes of data records to server\n", written);
 	}
 
 	void TelemetryTransmitter::BeginTransmission()
 	{
-		_socket.SetTimeout(0, 0'500);
+		_socket.SetTimeout(2, 0);
 		//_sendStack.Clear();
 		//gView.ResetAll();
 		do
 		{
-			SendDataRecord2();
+			SendDataRecord();
 			PRINTI(TELEMETRY_TAG, "Send a data record.\n");
 		}
 		while(!_socket.Check(file::BDF_COMMANDS::REQ_STOP));
@@ -170,85 +176,37 @@ namespace net
 		//}
 	}
 
-	TelemetryTransmitter::size_type TelemetryTransmitter::SendDataRecord()
-	{
-		size_type written = 0;
-		//	for(auto const& b : gView)
-		//	{
-		//		const auto nodesInBDFRecord = b->NodesInBDFRecord();
-		//		const auto nodeSize = b->NodeSize();
-		//		const auto size = nodesInBDFRecord * nodeSize;
-		//		assert(nodeSize == 3);
-		//		assert(nodesInBDFRecord == 60);
-		//		while(true)
-		//		{
-		//			if(b->Size() >= nodesInBDFRecord)
-		//			{
-		//				b->Lock();
-		//				const unsigned numberOfChannels = b->ChannelCount();
-		//				if(b->IsOverflowing())
-		//				{
-		//					const auto nodesToOverflow = b->NodesToOverflow();
-		//					const auto nodesAfterOverflow = nodesInBDFRecord - nodesToOverflow;
-		//					void* readToOverflow = b->ReadAdvance(nodesToOverflow);
-		//					void* readAfterOverflow = b->ReadAdvance(nodesAfterOverflow);
-		//					const auto nodesToOverflowSize = nodesToOverflow * nodeSize;
-		//					const auto nodesAfterOverflowSize = nodesAfterOverflow * nodeSize;
-		//					//PRINTI(TELEMETRY_TAG, "before: %u after: %u\n", nodesToOverflowSize, nodesAfterOverflowSize);
-		//					assert(nodesToOverflow + nodesAfterOverflow == nodesInBDFRecord);
-		//					for(auto channel = 0; channel < numberOfChannels; channel++)
-		//					{
-		//						if(_socket.Send(b->ChangeChannel(readToOverflow, channel), nodesToOverflowSize) == TCPError::SENDING_FAILED)
-		//							PRINTI(TELEMETRY_TAG, "sending nodes to overflow failed");
-		//						if(_socket.Send(b->ChangeChannel(readAfterOverflow, channel), nodesAfterOverflow) == TCPError::SENDING_FAILED)
-		//							PRINTI(TELEMETRY_TAG, "sending nodes after overflow failed");
-		//					}
-		//					written += (nodesToOverflowSize + nodesAfterOverflowSize) * numberOfChannels;
-		//					
-		//				}
-		//				else
-		//				{
-		//					void* read = b->ReadAdvance(nodesInBDFRecord);
-		//					//PRINTI(TELEMETRY_TAG, "overall: %u\n", size);
-		//					for(auto channel = 0; channel < numberOfChannels; channel++)
-		//					{
-		//						if(_socket.Send(b->ChangeChannel(read, channel), size) == TCPError::SENDING_FAILED)
-		//							PRINTI(TELEMETRY_TAG, "sending nodes failed");
-		//					}
-		//					written += size * numberOfChannels;
-		//				}
-		//				b->Unlock();
-		//				break;
-		//			}
-		//		}
-		//	}
-		//PRINTI(TELEMETRY_TAG, "Written %u Bytes\n", written);
-		return written;
-	}
-
-	TelemetryTransmitter::size_type IRAM_ATTR TelemetryTransmitter::SendDataRecord2() 
+	TelemetryTransmitter::size_type IRAM_ATTR TelemetryTransmitter::SendDataRecord() 
 	{
 		mem::Stack::size_type channel;
+		static uint32_t transmitter_count = 0;
+		uint64_t start = esp_timer_get_time();
 		do
 		{
 			channel = 0;
 			for(mem::RingBuffer* buffer: _bufferView)
 			{
-				if(_sendStack.Fits(channel, sizeof(mem::int24_t)) && buffer->HasData())
+				int fits = _sendStack.Fits(channel, sizeof(mem::int24_t));
+				int hasData = buffer->HasData();
+				while(fits && hasData)
 				{
 					//buffer->Lock();
-					void const* data = buffer->ReadAdvance(1);
+					void const* data = buffer->CurrentRead();
 					_sendStack.PushNChannels(data, sizeof(mem::int24_t), channel, buffer->ChannelCount());
+					buffer->ReadAdvance(1);
 					//buffer->Unlock();
 				}
+				if(transmitter_count++ % 100 == 0)
+					PRINTI("[Transmitter:]", "transmitter fits=%d, hasData=%d\n", fits, hasData);
 				channel += buffer->ChannelCount();
 			}
+			YIELD_FOR(20);
 		}
 		while (!_sendStack.Full(0, channel));
-		uint64_t start = esp_timer_get_time();
-		TCPError error = _socket.Send(_sendStack.Data(), _stackSize);
 		uint64_t end = esp_timer_get_time();
-		printf("Send took %llu milliseconds (%llu microseconds)\n", (end - start) / 1000, (end - start));
+		printf("Write took %llu milliseconds (%llu microseconds)\n", (end - start) / 1000, (end - start));
+		TCPError error = _socket.Send(_sendStack.Data(), _stackSize);
+		
 		_sendStack.Clear();
 		return _stackSize;
 	}

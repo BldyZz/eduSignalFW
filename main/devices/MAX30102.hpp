@@ -27,8 +27,12 @@ namespace device
 		void Init();
 		mem::RingBuffer* RingBuffer();
 
+		void ReadBufferSize();
+		bool HasData();
 		bool IsReady() const;
-		void IRAM_ATTR Handler();
+		void ReadData();
+		void InsertPadding();
+
 	private:
 		using sample_t = mem::int24_t;
 		using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
@@ -44,9 +48,6 @@ namespace device
 
 		void Reset();
 		void Configure();
-		void ReadData();
-		void ReadBufferSize();
-		bool IsEmpty() const;
 
 		oxi_sample                _underlyingBuffer[config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
 		mem::RingBuffer           _buffer;

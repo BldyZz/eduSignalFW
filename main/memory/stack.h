@@ -32,6 +32,7 @@ namespace mem
 		}
 
 		void PushNChannels(const_pointer data, size_type const& size, size_type const& firstChannel, size_type const& numberOfChannels) const;
+		void PushNChannels(const_pointer data, size_type const& size, size_type const& firstChannel, size_type const& numberOfChannels, size_type const& numberOfDataPoints) const;
 		void Push(const_pointer data, size_type const& size, size_type const& channel) const;
 
 		size_type FreeSpace(size_type const& channel) const;

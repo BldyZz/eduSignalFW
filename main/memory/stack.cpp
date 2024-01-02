@@ -17,6 +17,20 @@ namespace mem
 		}
 	}
 
+	void Stack::PushNChannels(const_pointer data, size_type const& size, size_type const& firstChannel, size_type const& numberOfChannels, size_type const& numberOfDataPoints) const
+	{
+		size_type dataOff = 0;
+		for(auto dataPoint = 0; dataPoint < numberOfDataPoints; ++dataPoint)
+		{
+			for(auto channel = firstChannel; channel < (firstChannel + numberOfChannels); ++channel)
+			{
+				memcpy(_sdata + _layout[channel].off + _layout[channel].level, data + size * dataOff, size);
+				_layout[channel].level += size;
+				dataOff++;
+			}
+		}
+	}
+
 	void Stack::Push(const_pointer data, size_type const& size, size_type const& channel) const
 	{
 		memcpy(_sdata + _layout[channel].level, data, size);

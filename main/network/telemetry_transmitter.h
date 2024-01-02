@@ -19,6 +19,7 @@ namespace net
 		TelemetryTransmitter() = delete;
 		TelemetryTransmitter(mem::RingBufferView const* view);
 
+		void TryAgain();
 		bool FindServer();
 		bool SendHeaders();
 		long GetNumberOfMeasurements();
@@ -29,8 +30,7 @@ namespace net
 		using size_type = size_t;
 
 		void SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize);
-		size_type SendDataRecord();
-		size_type IRAM_ATTR SendDataRecord2();
+		size_type IRAM_ATTR SendDataRecord();
 
 		mem::RingBufferView _bufferView;
 		mem::Stack     _sendStack;

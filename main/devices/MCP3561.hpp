@@ -14,14 +14,17 @@
 
 namespace device
 {
-	class MCP3561 : esp::spiDevice<config::MCP3561::Config, config::MCP3561::SPI_MAX_TRANSACTION_LENGTH>
+	class MCP3561 : protected esp::spiDevice<config::MCP3561::Config, config::MCP3561::SPI_MAX_TRANSACTION_LENGTH>
 	{
 	public:
 		explicit MCP3561(esp::spiHost<config::MCP3561::Config> const& bus);
 
-		void Init();
-		void Handler();
+		void             Init();
 		mem::RingBuffer* RingBuffer();
+		void             CaptureData();
+		bool             HasData() const;
+		void             InsertPadding();
+
 	private:
 		using tp = std::chrono::time_point<std::chrono::system_clock>;
 		enum class State : util::byte;
@@ -33,7 +36,6 @@ namespace device
 		void Reset();
 		void PowerUp();
 		void Configure();
-		void CaptureData();
 
 		State _state;
 		tp _resetTime;

@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "task_config.h"
+#include "../config/task.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -42,26 +42,39 @@ namespace sys
 	{
 		esp_util::nvs_init();
 		// Establish wifi connection
-		const char* ssid = "WLAN-Q3Q83P_EXT";
-		const char* pw = "1115344978197496";
+		char const* ssid = "WLAN-Q3Q83P_EXT";
+		char const* pw   = "1115344978197496";
 		net::connect(ssid, pw);
 		net::wait_for_connection();
 		net::print_ip_info();
-		mem::RingBufferView ringBufferView = *static_cast<mem::RingBufferView*>(view);
+		const mem::RingBufferView ringBufferView = *static_cast<mem::RingBufferView*>(view);
 		*static_cast<mem::RingBufferView*>(view) = mem::RingBufferView();
 		net::TelemetryTransmitter telemetry(&ringBufferView);
 		while (true)
 		{
-			if(!telemetry.FindServer()) continue;
-			if(!telemetry.SendHeaders()) continue;
+			if(!telemetry.FindServer())
+			{
+				telemetry.TryAgain();
+				continue;
+			}
+			if(!telemetry.SendHeaders())
+			{
+				telemetry.TryAgain();
+				continue;
+			}
 			const long numberOfMeasurements = telemetry.GetNumberOfMeasurements();
 			if(numberOfMeasurements > 0)
 			{
 				telemetry.BeginTransmission(numberOfMeasurements);
 			}
-			else if(numberOfMeasurements < 0)
+			else if(numberOfMeasurements == 0)
 			{
 				telemetry.BeginTransmission();
+			}
+			else
+			{
+				telemetry.TryAgain();
+				continue;
 			}
 			// else continue
 			YIELD_FOR(5'000);
