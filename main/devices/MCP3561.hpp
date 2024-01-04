@@ -6,7 +6,7 @@
 #include "esp_util/spiDevice.hpp"
 #include "../config/devices.h"
 #include "../util/types.h"
-#include "../memory/ring_buffer.h"
+#include "../memory/sensor_data.h"
 #include "../memory/int.h"
 // external
 #include "freertos/FreeRTOS.h"
@@ -21,7 +21,7 @@ namespace device
 
 		void Init();
 		void Handler();
-		mem::RingBuffer* RingBuffer();
+		mem::SensorData<mem::int24_t> Data();
 	private:
 		using tp = std::chrono::time_point<std::chrono::system_clock>;
 		enum class State : util::byte;
@@ -38,8 +38,7 @@ namespace device
 		State _state;
 		tp _resetTime;
 		std::size_t _errorCounter;
-		mem::RingBuffer _buffer;
 		StaticSemaphore_t  _mutexBuffer;
-		dc_t _output[32];
+		dc_t _output;
 	};
 }

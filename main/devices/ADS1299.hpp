@@ -4,7 +4,7 @@
 #include "../config/devices.h"
 #include "../util/types.h"
 #include "../memory/int.h"
-#include "../memory/ring_buffer.h"
+#include "../memory/sensor_data.h"
 // external
 #include <esp_util/spiDevice.hpp>
 #include <esp_util/spiHost.hpp>
@@ -24,8 +24,7 @@ namespace device
 		void IRAM_ATTR Handler();
 		bool IsReady() const;
 
-		mem::RingBuffer* ECGRingBuffer();
-		mem::RingBuffer* NoiseRingBuffer();
+		mem::SensorData<mem::int24_t> ECGData();
 	private:
 		enum class State : util::byte;
 		struct Command;
@@ -67,13 +66,11 @@ namespace device
 		void SetCustomSettings();
 
 		State _state;
-		ecg_t _noise[config::ADS1299::NOISE_SAMPLES_IN_RING_BUFFER]; // Noise data (Not implemented)
-		ecg_t _ecg[config::ADS1299::ECG_SAMPLES_IN_RING_BUFFER]; // Electrocardiography data
+		ecg_t _noise; // Noise data (Not implemented)
+		ecg_t _ecg; // Electrocardiography data
 		timepoint_t       _nextTime;
 		uint32_t          _statusBits;
 		size_t            _resetCounter;
-		mem::RingBuffer	  _ecgBuffer;
-		mem::RingBuffer	  _noiseBuffer;
 		StaticSemaphore_t _mutexBuffer[2];
 	};
 

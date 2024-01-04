@@ -84,9 +84,6 @@ namespace device
 
 	void BHI160::Init()
 	{
-		// Create ring buffer
-		_buffer = mem::RingBuffer(&_mutexBuffer, _acceleration, sizeof(acceleration_t), std::size(_acceleration), config::BHI160::CHANNEL_COUNT);
-
 		gpio_set_direction(config::BHI160::INTERRUPT_PIN, GPIO_MODE_INPUT);
 
 		while(!IsReady())
@@ -122,14 +119,13 @@ namespace device
 		case Event::Accelerometer:
 		case Event::AccelerometerWakeUp:
 		{
-			*static_cast<acceleration_t*>(_buffer.CurrentWrite()) = acceleration_t
+			_acceleration = acceleration_t
 			{
 				.X = mem::int24_t(static_cast<int16_t>(package[5] | package[6] << 8)), // X
 				.Y = mem::int24_t(static_cast<int16_t>(package[3] | package[4] << 8)), // Y
 				.Z = mem::int24_t(static_cast<int16_t>(package[1] | package[2] << 8)), // Z
-				.status = mem::int24_t(static_cast<int16_t>(package[7])),                  // Status
+				.status = mem::int24_t(static_cast<int16_t>(package[7])),              // Status
 			};
-			_buffer.WriteAdvance();
 			HandleData(std::span{package.begin() + 8, package.end()});
 			_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
 		}
@@ -351,19 +347,6 @@ namespace device
 		{
 			if(gpio_get_level(config::BHI160::INTERRUPT_PIN) == 0)
 			{
-				const timepoint_t now = timepoint_t::clock::now();
-				if(now > _nextTime)
-				{
-					*static_cast<acceleration_t*>(_buffer.CurrentWrite()) = acceleration_t
-					{
-						.X = (int32_t)0,
-						.Y = (int32_t)0,
-						.Z = (int32_t)0,
-						.status = (int32_t)0
-					};
-					_buffer.WriteAdvance();
-					_nextTime = now + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
-				}
 				break;
 			}
 
@@ -385,12 +368,8 @@ namespace device
 		return _state >= State::Idle;
 	}
 
-	mem::RingBuffer* BHI160::RingBuffer()
+	mem::SensorData<mem::int24_t> BHI160::Data()
 	{
-		if(!_buffer.IsValid())
-		{
-			PRINTI("[BHI160:]", "Ring buffer was not initialized!\n");
-		}
-		return &_buffer;
+		return mem::SensorData(&_acceleration.X, config::BHI160::CHANNEL_COUNT, config::BHI160::SAMPLE_RATE);
 	}
 }

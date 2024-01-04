@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../memory/ring_buffer.h"
+#include "../memory/sensor_data.h"
 #include "../memory/stack.h"
 #include "tcp_client.h"
 #include "esp_attr.h"
@@ -16,8 +16,7 @@ namespace net
 	class TelemetryTransmitter
 	{
 	public:
-		TelemetryTransmitter() = delete;
-		TelemetryTransmitter(mem::RingBufferView const* view);
+		TelemetryTransmitter();
 
 		bool FindServer();
 		bool SendHeaders();
@@ -29,10 +28,9 @@ namespace net
 		using size_type = size_t;
 
 		void SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize);
-		size_type SendDataRecord();
 		size_type IRAM_ATTR SendDataRecord2();
 
-		mem::RingBufferView _bufferView;
+		mem::SensorView<mem::int24_t> _sensorView;
 		mem::Stack     _sendStack;
 		net::TCPClient _socket;
 		unsigned       _channelCount;

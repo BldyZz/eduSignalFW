@@ -11,7 +11,7 @@
 
 #include "../config/devices.h"
 #include "../util/types.h"
-#include "../memory/ring_buffer.h"
+#include "../memory/sensor_data.h"
 #include "../memory/int.h"
 
 namespace device
@@ -25,7 +25,7 @@ namespace device
 		MAX30102();
 
 		void Init();
-		mem::RingBuffer* RingBuffer();
+		mem::SensorData<mem::int24_t> Data();
 
 		bool IsReady() const;
 		void IRAM_ATTR Handler();
@@ -48,11 +48,10 @@ namespace device
 		void ReadBufferSize();
 		bool IsEmpty() const;
 
-		oxi_sample                _underlyingBuffer[config::MAX30102::SAMPLES_IN_RING_BUFFER]; // Don't use directly! Use _buffer instead.
-		mem::RingBuffer           _buffer;
-		timepoint_t               _nextTime;
-		int32_t                   _numberOfSamples;
-		StaticSemaphore_t         _mutexBuffer{};
-		State                     _state;
+		oxi_sample        sample; 
+		timepoint_t       _nextTime;
+		int32_t           _numberOfSamples;
+		StaticSemaphore_t _mutexBuffer{};
+		State             _state;
 	};
 }

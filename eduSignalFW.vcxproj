@@ -138,7 +138,7 @@
     <ClInclude Include="main\display\displayConfig.hpp" />
     <ClInclude Include="main\memory\int.h" />
     <ClInclude Include="main\memory\nvs.h" />
-    <ClInclude Include="main\memory\ring_buffer.h" />
+    <ClInclude Include="main\memory\sensor_data.h" />
     <ClInclude Include="main\memory\stack.h" />
     <ClInclude Include="main\network\bdf_plus.h" />
     <ClInclude Include="main\network\sockets.h" />
@@ -212,7 +212,6 @@
     <ClCompile Include="main\memory\bdf_future.h" />
     <ClCompile Include="main\memory\int.cpp" />
     <ClCompile Include="main\memory\nvs.cpp" />
-    <ClCompile Include="main\memory\ring_buffer.cpp" />
     <ClCompile Include="main\memory\stack.cpp" />
     <ClCompile Include="main\network\bdf_plus.cpp" />
     <ClCompile Include="main\network\sockets.cpp" />

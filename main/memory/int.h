@@ -23,10 +23,6 @@ namespace mem
 		int24_t(int16_t const& value);
 		int24_t(uint16_t const& value);
 
-		// Copy
-		int24_t(int24_t const& other);
-		int24_t& operator=(int24_t const& other);
-
 		// Operators
 		int24_t& operator=(uint32_t const& value);
 		int24_t& operator=(int32_t const& value);

@@ -56,8 +56,7 @@ namespace device
 	};
 
 	MAX30102::MAX30102()
-		:  _underlyingBuffer{},
-		  _buffer(),
+		:  sample{},
 	      _nextTime(timepoint_t::clock::now()),
 	      _numberOfSamples(0),
 		  _mutexBuffer(),
@@ -67,23 +66,14 @@ namespace device
 
 	void MAX30102::Init()
 	{
-		_buffer = mem::RingBuffer(&_mutexBuffer, 
-								  _underlyingBuffer,
-								  sizeof(oxi_sample),
-								  std::size(_underlyingBuffer), 
-								  config::MAX30102::CHANNEL_COUNT);
 		PRINTI("[MAX30102:]", "Initialization successful.\n");
 		while(!IsReady()) 
 			Handler();
 	}
 
-	mem::RingBuffer* MAX30102::RingBuffer()
+	mem::SensorData<mem::int24_t> MAX30102::Data()
 	{
-		if(!_buffer.IsValid())
-		{
-			PRINTI("[MAX30102:]", "Ring buffer was not initialized!\n");
-		}
-		return &_buffer;
+		return 	mem::SensorData(&sample.red, config::MAX30102::CHANNEL_COUNT, config::MAX30102::SAMPLE_RATE);
 	}
 
 	bool MAX30102::IsReady() const
@@ -134,15 +124,15 @@ namespace device
 		std::memcpy(&tempRed._value, rxData.data() + sizeof(sample_t), sizeof(sample_t));
 		std::memcpy(&tempInfraRed._value, rxData.data(), sizeof(sample_t));
 		// sample data has a maximum width of 18 Bits, so discard the rest.
-		tempRed._value[3]	   &= 0x03;
-		tempInfraRed._value[3] &= 0x03; 
+		tempRed._value[2]	   &= 0x03;
+		tempInfraRed._value[2] &= 0x03; 
 
-		*static_cast<oxi_sample*>(_buffer.CurrentWrite()) = oxi_sample
+		sample = oxi_sample
 		{
 			.red = tempRed,
 			.infraRed = tempInfraRed
 		};
-		_buffer.WriteAdvance();
+		
 		_numberOfSamples--;
 		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
 	}
@@ -180,24 +170,6 @@ namespace device
 			const timepoint_t now = timepoint_t::clock::now();
 			if(IsEmpty())
 			{
-				if(now >= _nextTime)
-				{
-					//count++;
-					//static size_t     i   = 0;
-					//const mem::int24_t out = static_cast<int32_t>(10 * (i++ % config::MAX30102::NODES_IN_BDF_RECORD));
-					//
-					//
-					//if(count % 1000 == 0)PRINTI("MAX:", "count = %lu", count);
-					//*static_cast<oxi_sample*>(_buffer.WriteAdvance()) = {.red = out, .infraRed = out};
-					
-					//oxi_sample sample = {.red = {-10}, .infraRed = int32_t{-10}};
-
-					static constexpr sample_t redSample = {};
-					static constexpr sample_t infraRedSample = {};
-					*static_cast<oxi_sample*>(_buffer.CurrentWrite()) = oxi_sample{redSample, infraRedSample};
-					_buffer.WriteAdvance();
-					_nextTime = now + std::chrono::microseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
-				}
 				break;
 			}
 

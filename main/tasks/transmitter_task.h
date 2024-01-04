@@ -2,5 +2,5 @@
 
 namespace sys
 {
-	void transmitter_task(void* view);
+	void transmitter_task(void*);
 }

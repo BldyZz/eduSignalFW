@@ -31,7 +31,7 @@ namespace config
 {
 	using ascii_t = char;
 
-	static constexpr float DURATION_OF_MEASUREMENT = 0.4f;
+	static constexpr float DURATION_OF_MEASUREMENT = 0.2f;
 	static constexpr float OVERFLOW_SAFETY_FACTOR = 2.0f;
 
 	template<typename T>
@@ -55,7 +55,7 @@ namespace config
 	{
 		using Config = BoardSPIConfig;
 
-		static constexpr size_t  SAMPLE_RATE         = 125; // in SPS
+		static constexpr size_t  SAMPLE_RATE         = 250; // in SPS
 		// BDF Info
 		static constexpr size_t      CHANNEL_COUNT                      = 4;
 		inline static const ascii_t* LABELS[CHANNEL_COUNT]              = {"ECG Ch1", "ECG Ch2", "ECG Ch3", "ECG Ch4"};

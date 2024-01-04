@@ -9,7 +9,7 @@
 
 namespace file
 {
-	/* First send general header, then each attribute of the record headers... 
+	/* First send general header, then each attribute of the record gSignalHeaders... 
 	 *---------------------------------------------------------------------------------------------------------------------------------------------------------------*
 	 |	bdf_header_t | bdf_signal_header_t.label 1| ... | bdf_signal_header_t.label N  | ... | bdf_signal_header_t.reserved 1 | ... | bdf_signal_header_t.reserved N |
 	 *---------------------------------------------------------------------------------------------------------------------------------------------------------------*
@@ -44,22 +44,26 @@ namespace file
 	 * \brief Header which gets send in the beginning N times after the general header.
 	 * This is one of (N) signal headers.
 	 */
-	union bdf_signal_header_t
+	struct bdf_signal_header_t
 	{
-		struct
+		std::size_t samples_in_bdf_record;
+		union 
 		{
-			ascii_t label[16];				// (e.g.EEG Fpz - Cz or Body temp) (mind item 9 of the additional EDF + specs)
-			ascii_t transducer_type[80];	// (e.g.AgAgCl electrode)
-			ascii_t physical_dimension[8];	// (e.g.uV or degreeC)
-			ascii_t physical_minimum[8];	// (e.g. - 500 or 34)
-			ascii_t physical_maximum[8];	// (e.g. 500 or 40)
-			ascii_t digital_minimum[8];		// (e.g. - 2048)
-			ascii_t digital_maximum[8];		// (e.g. 2047) 
-			ascii_t pre_filtering[80];		// (e.g.HP:0.1Hz LP : 75Hz) 
-			ascii_t nr_of_samples_in_signal[8];
-			ascii_t reserved[32];
+			struct
+			{
+				ascii_t label[16];				// (e.g.EEG Fpz - Cz or Body temp) (mind item 9 of the additional EDF + specs)
+				ascii_t transducer_type[80];	// (e.g.AgAgCl electrode)
+				ascii_t physical_dimension[8];	// (e.g.uV or degreeC)
+				ascii_t physical_minimum[8];	// (e.g. - 500 or 34)
+				ascii_t physical_maximum[8];	// (e.g. 500 or 40)
+				ascii_t digital_minimum[8];		// (e.g. - 2048)
+				ascii_t digital_maximum[8];		// (e.g. 2047) 
+				ascii_t pre_filtering[80];		// (e.g.HP:0.1Hz LP : 75Hz) 
+				ascii_t nr_of_samples_in_signal[8];
+				ascii_t reserved[32];
+			};
+			ascii_t data[256];
 		};
-		ascii_t data[256];
 	};
 
 	struct BDF_COMMANDS
@@ -93,13 +97,13 @@ namespace file
 							  uint32_t nr_of_samples_in_signal);
 
 	template<typename DeviceType, size_t Count>
-	void createBDFHeader(bdf_signal_header_t(&headers)[Count])
+	std::size_t createBDFHeader(bdf_signal_header_t(&headers)[Count], std::size_t const& offset)
 	{
 		for(int header = 0; header < DeviceType::CHANNEL_COUNT; header++)
 		{
 			//char label[sizeof(DeviceType::LABEL) + 1 + 3 + 1];
 			//DISCARD std::snprintf(label, std::size(label), "%s %1d", DeviceType::LABEL, header + 1);
-			create_signal_header(&headers[header],
+			create_signal_header(&headers[header + offset],
 								 DeviceType::LABELS[header],
 								 DeviceType::TRANSDUCER_TYPE,
 								 DeviceType::PHYSICAL_DIMENSIONS[header],
@@ -110,6 +114,8 @@ namespace file
 								 DeviceType::PRE_FILTERING,
 								 DeviceType::NODES_IN_BDF_RECORD
 			);
+			PRINTI("[Header:]", "%s\n", headers[header + offset].data);
 		}
+		return offset + DeviceType::CHANNEL_COUNT;
 	}
 }

@@ -71,18 +71,13 @@ namespace device
 
 	void MCP3561::Init()
 	{
-		_buffer = mem::RingBuffer(&_mutexBuffer, _output, sizeof(dc_t), std::size(_output), config::MCP3561::CHANNEL_COUNT);
 		gpio_set_direction(config::MCP3561::IRQ_PIN, GPIO_MODE_INPUT);
 		PRINTI("[MCP3561:]", "Initialization complete.\n");
 	}
 
-	mem::RingBuffer* MCP3561::RingBuffer()
+	mem::SensorData<mem::int24_t> MCP3561::Data()
 	{
-		if(!_buffer.IsValid())
-		{
-			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
-		}
-		return &_buffer;
+		return mem::SensorData(&_output, config::MCP3561::CHANNEL_COUNT, 5000);
 	}
 
 	void MCP3561::Reset()
@@ -169,14 +164,7 @@ namespace device
 		std::int32_t transformedData = 0;
 		std::reverse_copy(rxData.begin(), rxData.end(), &transformedData);
 
-
-		//transformedData = transformedData << 8;
-		//transformedData	 = transformedData >> 8;
-		//fmt::print("{} {:#010b}\n", std::chrono::steady_clock::now().time_since_epoch() ,fmt::join(rxData, ", "));
-		_buffer.Lock();
-		*static_cast<mem::int24_t*>(_buffer.CurrentWrite()) = mem::int24_t(transformedData);
-		_buffer.WriteAdvance();
-		_buffer.Unlock();
+		_output = transformedData;
 	}
 
 	void MCP3561::Handler()

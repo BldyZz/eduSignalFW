@@ -163,8 +163,6 @@ namespace device
 		  _nextTime(timepoint_t::clock::now()),
 		  _statusBits(0),
 		  _resetCounter(0),
-		  _ecgBuffer{},
-		  _noiseBuffer{},
 		  _mutexBuffer{}
 	{
 	}
@@ -172,10 +170,6 @@ namespace device
 	void ADS1299::Init()
 	{
 		_state       = State::Reset;
-
-		// Create ring buffers.
-		_ecgBuffer   = mem::RingBuffer(_mutexBuffer, _ecg, sizeof(ecg_t), std::size(_ecg), config::ADS1299::CHANNEL_COUNT);
-		//_noiseBuffer = mem::RingBuffer(_mutexBuffer + 1, _noise, sizeof(voltage_t), std::size(_noise), config::ADS1299::CHANNEL_COUNT, nullptr, 0);
 
 		gpio_set_direction(config::ADS1299::RESET_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_direction(config::ADS1299::N_PDWN_PIN, GPIO_MODE_OUTPUT);
@@ -198,14 +192,8 @@ namespace device
 		auto first = rxData.begin();
 		for(util::byte channel = 0; channel < config::ADS1299::CHANNEL_COUNT; ++channel, first = std::next(first, sizeof(voltage_t)))
 			std::reverse(first, std::next(first, sizeof(voltage_t)));
-
-		if(!_ecgBuffer.CanWrite())
-		{
-			PRINTI("[ADS1299:]", "Overflow\n");
-		}
-		const auto data = static_cast<voltage_t*>(_ecgBuffer.CurrentWrite());
-		std::memcpy(data->_value, rxData.data(), sizeof(ecg_t));
-		_ecgBuffer.WriteAdvance();
+		
+		std::memcpy(_ecg.channels, rxData.data(), sizeof(ecg_t));
 		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::ADS1299::SAMPLE_RATE));
 
 		//_ecgBuffer.Lock();
@@ -327,33 +315,10 @@ namespace device
 		return _state == State::Idle;
 	}
 
-	mem::RingBuffer* ADS1299::ECGRingBuffer()
+	mem::SensorData<mem::int24_t> ADS1299::ECGData()
 	{
-		return &_ecgBuffer;
+		return mem::SensorData(_ecg.channels, std::size(_ecg.channels), config::ADS1299::SAMPLE_RATE);
 	}
-
-	mem::RingBuffer* ADS1299::NoiseRingBuffer()
-	{
-		return &_noiseBuffer;
-	}
-
-	//mem::RingBuffer* ADS1299::ECGRingBuffer()
-	//{
-	//	if(!_ecgBuffer.IsValid())
-	//	{
-	//		PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
-	//	}
-	//	return &_ecgBuffer;
-	//}
-
-	/*mem::RingBuffer* ADS1299::NoiseRingBuffer()
-	{
-		if(!_noiseBuffer.IsValid())
-		{
-			PRINTI("[ADS1299:]", "Ring buffer was not initialized!\n");
-		}
-		return &_noiseBuffer;
-	}*/
 
 	void ADS1299::Reset()
 	{

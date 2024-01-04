@@ -1,7 +1,6 @@
 #include "esp_util/i2cMaster.hpp"
 #include "esp_util/spiHost.hpp"
 
-#include "../memory/ring_buffer.h"
 #include "../devices/ADS1299.hpp"
 #include "../devices/MAX30102.hpp"
 #include "../devices/BHI160.hpp"
@@ -19,6 +18,8 @@
 
 namespace sys
 {
+	mem::SensorView<mem::int24_t> gSensorView;
+
 	// SPI, I2C Interfaces
 	esp::spiHost<config::ADS1299::Config> boardSPI;
 	volatile esp::i2cMaster<config::I2C0_Config> boardI2C;
@@ -57,7 +58,7 @@ namespace sys
 		}
 	}
 
-	void sensor_control_task(WRITE_ONLY void* view)
+	void sensor_control_task(void*)
 	{
 		std::printf("[SensorControlTask:] Initializing...\n");
 
@@ -68,25 +69,15 @@ namespace sys
 		adc.Init();
 		touchScreenController.Init();
 
-		mem::RingBufferView::handle sensorBuffers[] =
+		std::array sensorBuffers =
 		{
-			pulseOxiMeter.RingBuffer(),
-			ecg.ECGRingBuffer(),
-			imu.RingBuffer(),
-			//adc.RingBuffer(),
+			ecg.ECGData(),
+			pulseOxiMeter.Data(),
+			imu.Data(),
+			//adc.Data(),
 		};
-		file::bdf_signal_header_t adsHeaders[config::ADS1299::CHANNEL_COUNT];
-		file::bdf_signal_header_t pulseOxiMeterHeaders[config::MAX30102::CHANNEL_COUNT];
-		file::bdf_signal_header_t imuHeaders[config::BHI160::CHANNEL_COUNT];
-		file::createBDFHeader<config::ADS1299>(adsHeaders);
-		file::createBDFHeader<config::MAX30102>(pulseOxiMeterHeaders);
-		file::createBDFHeader<config::BHI160>(imuHeaders);
-		sensorBuffers[0]->SetBDF(pulseOxiMeterHeaders, config::MAX30102::NODES_IN_BDF_RECORD);
-		sensorBuffers[1]->SetBDF(adsHeaders, config::ADS1299::NODES_IN_BDF_RECORD);
-		sensorBuffers[2]->SetBDF(imuHeaders, config::BHI160::NODES_IN_BDF_RECORD);
 
-		// Pass back ring buffer. 
-		*static_cast<mem::RingBufferView*>(view) = mem::RingBufferView(sensorBuffers, std::size(sensorBuffers));
+		gSensorView = mem::SensorView<mem::int24_t>(sensorBuffers.begin(), sensorBuffers.end());
 
 		// Start Measuring
 		while(true)

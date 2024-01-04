@@ -7,7 +7,7 @@
 // internal
 #include "../config/devices.h"
 #include "../util/types.h"
-#include "../memory/ring_buffer.h"
+#include "../memory/sensor_data.h"
 #include "../memory/int.h"
 // std
 #include <span>
@@ -22,7 +22,7 @@ namespace device
 		void             Init();
 		void IRAM_ATTR   Handler();
 		bool             IsReady() const;
-		mem::RingBuffer* RingBuffer();
+		mem::SensorData<mem::int24_t> Data();
 	private:
 
 		enum class State : util::byte;
@@ -48,13 +48,12 @@ namespace device
 		};
 
 		using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
-		acceleration_t _acceleration[config::BHI160::SAMPLES_IN_RING_BUFFER];
+		acceleration_t _acceleration;
 
 		util::timestamp_t         _timestamp;
 		timepoint_t               _nextTime;
 		std::uint16_t             _bytesInFIFO;
 		State                     _state;
 		StaticSemaphore_t         _mutexBuffer{};
-		mem::RingBuffer           _buffer;
 	};
 }

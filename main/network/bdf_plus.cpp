@@ -109,7 +109,7 @@ namespace file
 			}()
 		);
 	}
-
+#define TARGET_BDF_SIGNAL_HEADER_MEMBER(header, member) header->member, sizeof(std::remove_pointer_t<decltype(header)>::member)
 	void create_signal_header(OUT bdf_signal_header_t* header,
 							  const ascii_t* label,
 							  const ascii_t* transducer_type,
@@ -123,18 +123,18 @@ namespace file
 							  )
 	{
 		const char* reserved = "Reserved";
-
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, label), label);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, transducer_type), transducer_type);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, physical_dimension), physical_dimension);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, physical_minimum), physical_minimum);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, physical_maximum), physical_maximum);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, digital_minimum), digital_minimum);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, digital_maximum), digital_maximum);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, pre_filtering), pre_filtering);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, nr_of_samples_in_signal), nr_of_samples_in_signal);
-		string_copy_and_fill(TARGET_BDF_HEADER_MEMBER(header, reserved), reserved);
-
+		header->samples_in_bdf_record = nr_of_samples_in_signal;
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, label), label);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, transducer_type), transducer_type);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, physical_dimension), physical_dimension);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, physical_minimum), physical_minimum);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, physical_maximum), physical_maximum);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, digital_minimum), digital_minimum);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, digital_maximum), digital_maximum);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, pre_filtering), pre_filtering);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, nr_of_samples_in_signal), nr_of_samples_in_signal);
+		string_copy_and_fill(TARGET_BDF_SIGNAL_HEADER_MEMBER(header, reserved), reserved);
+		
 		// Assert that ascii symbols are either visible or space
 		assert(
 			[&](bool isInvalid = false) 
