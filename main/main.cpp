@@ -27,7 +27,7 @@ void app_main(void)
         "SensorControlTask", 
         SENSOR_CONTROL_TASK_STACK_SIZE, 
         nullptr,
-        30,
+        26,
         &SensorControl,
         1
     );

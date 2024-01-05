@@ -57,7 +57,6 @@ namespace device
 
 	MAX30102::MAX30102()
 		:  sample{},
-	      _nextTime(timepoint_t::clock::now()),
 	      _numberOfSamples(0),
 		  _mutexBuffer(),
 	      _state(State::Reset)
@@ -134,7 +133,6 @@ namespace device
 		};
 		
 		_numberOfSamples--;
-		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::MAX30102::SAMPLE_RATE));
 	}
 
 	void MAX30102::ReadBufferSize()
@@ -167,7 +165,6 @@ namespace device
 		case State::Idle:
 		{
 			ReadBufferSize();
-			const timepoint_t now = timepoint_t::clock::now();
 			if(IsEmpty())
 			{
 				break;

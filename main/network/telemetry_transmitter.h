@@ -23,12 +23,13 @@ namespace net
 		long GetNumberOfMeasurements();
 		void BeginTransmission(long const& numberOfMeasurements);
 		void BeginTransmission(); // Sends indefinite until BDF Command is received.
+		void TryAgain();
 
 	private:
 		using size_type = size_t;
 
-		void SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize);
-		size_type IRAM_ATTR SendDataRecord2();
+		TCPError SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize);
+		size_type IRAM_ATTR SendDataRecord();
 
 		mem::SensorView<mem::int24_t> _sensorView;
 		mem::Stack     _sendStack;

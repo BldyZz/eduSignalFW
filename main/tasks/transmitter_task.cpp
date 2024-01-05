@@ -36,14 +36,21 @@ namespace sys
 		net::TelemetryTransmitter telemetry;
 		while (true)
 		{
-			if(!telemetry.FindServer()) continue;
-			if(!telemetry.SendHeaders()) continue;
+			if(!telemetry.FindServer())
+			{
+				telemetry.TryAgain(); // Could not open socket
+				continue;
+			}
+			if(!telemetry.SendHeaders())
+			{
+				telemetry.TryAgain(); // Could not send headers
+			}
 			const long numberOfMeasurements = telemetry.GetNumberOfMeasurements();
 			if(numberOfMeasurements > 0)
 			{
 				telemetry.BeginTransmission(numberOfMeasurements);
 			}
-			else if(numberOfMeasurements < 0)
+			else if(numberOfMeasurements == 0)
 			{
 				telemetry.BeginTransmission();
 			}

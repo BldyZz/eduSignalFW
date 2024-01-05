@@ -11,7 +11,7 @@ FILE(GLOB_RECURSE app_sources
 # Register project source files
 idf_component_register(
 	SRCS ${app_sources} 
-	REQUIRES driver esp_wifi nvs_flash esp_timer wpa_supplicant
+	REQUIRES driver esp_wifi nvs_flash esp_timer wpa_supplicant esp_event
 	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/external/firmware
 	)
 target_compile_options(${COMPONENT_LIB} PRIVATE -std=c++20 -Wunused-variable -O3)

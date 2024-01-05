@@ -16,6 +16,7 @@
 
 #define PORT          1212
 #define TELEMETRY_TAG "[TelemetryTask:]"
+#define TRANSMISSION_ERROR(x) if((x) != net::TCPError::NO_ERROR) return false;
 
 namespace sys
 {
@@ -46,7 +47,6 @@ namespace net
 			for(util::size_t channel = 0; channel < sensor.size(); ++channel, ++_channelCount)
 			{
 				const mem::Stack::size_type sectionSize = gSignalHeaders[_channelCount].samples_in_bdf_record * sizeof(mem::int24_t);
-				PRINTI(TELEMETRY_TAG, "Section size = %u\n", sectionSize);
 				gSendStackLayout[_channelCount] = mem::Stack::layout_section{.level = 0, .size = sectionSize, .off = _stackSize};
 				_stackSize += sectionSize;
 			}	
@@ -56,13 +56,13 @@ namespace net
 	bool TelemetryTransmitter::FindServer()
 	{
 		if(_socket.IsConnected()) return true;
-
+		YIELD_FOR(500);
 		if(_socket.Open() != net::TCPError::NO_ERROR)
 		{
 			PRINTI(TELEMETRY_TAG, "Unable to open tcp client socket: %s\n", strerror(errno));
 			return false;
 		}
-		_socket.SetTimeout(1, 0);
+		_socket.SetTimeout(5, 0);
 
 		const char* serverAddress = "192.168.2.106";
 
@@ -85,31 +85,29 @@ namespace net
 									_channelCount);
 
 		// Receive header request and send it
-		_socket.WaitFor(file::BDF_COMMANDS::REQ_HEADER);
+		TRANSMISSION_ERROR(_socket.WaitFor(file::BDF_COMMANDS::REQ_HEADER));
 		PRINTI(TELEMETRY_TAG, "Received header request.\n");
-		if(_socket.Send(&generalHeader, sizeof(generalHeader)) == net::TCPError::SENDING_FAILED)
-		{
-			return false;
-		}
-		PRINTI(TELEMETRY_TAG, "Send header.\n");
+
+		TRANSMISSION_ERROR(_socket.Send(&generalHeader, sizeof(generalHeader)));
+		PRINTI(TELEMETRY_TAG, "Sent header.\n");
 
 		// Receive record header request. Send all channel gSignalHeaders of all RingBuffer.
-		_socket.WaitFor(file::BDF_COMMANDS::REQ_RECORD_HEADERS);
+		TRANSMISSION_ERROR(_socket.WaitFor(file::BDF_COMMANDS::REQ_RECORD_HEADERS));
 		PRINTI(TELEMETRY_TAG, "Received record header request.\n");
 		
 		// Send all record gSignalHeaders in a per attribute manner
 #define TARGET_BDF_HEADER_MEMBER(type, member) offsetof(type, member), sizeof type::member
 #define TARGET_BDF_MEMBER(member)              TARGET_BDF_HEADER_MEMBER(file::bdf_signal_header_t, member)
-		SendHeadersAttribute(TARGET_BDF_MEMBER(label));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(transducer_type));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(physical_dimension));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(physical_minimum));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(physical_maximum));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(digital_minimum));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(digital_maximum));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(pre_filtering));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(nr_of_samples_in_signal));
-		SendHeadersAttribute(TARGET_BDF_MEMBER(reserved));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(label)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(transducer_type)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(physical_dimension)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(physical_minimum)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(physical_maximum)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(digital_minimum)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(digital_maximum)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(pre_filtering)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(nr_of_samples_in_signal)));
+		TRANSMISSION_ERROR(SendHeadersAttribute(TARGET_BDF_MEMBER(reserved)));
 
 		return true;
 	}
@@ -122,7 +120,7 @@ namespace net
 		if(received <= 0)
 		{
 			PRINTI(TELEMETRY_TAG, "Error received no request.\n");
-			return 0;
+			return -1;
 		}
 		reqRecordsBuffer[received] = '\0';
 		const int isDifferent = std::memcmp(reqRecordsBuffer, file::BDF_COMMANDS::REQ_RECORDS.data(), file::BDF_COMMANDS::REQ_RECORDS.size());
@@ -136,32 +134,48 @@ namespace net
 
 	void TelemetryTransmitter::BeginTransmission(long const& numberOfMeasurements)
 	{
-
 		// Send records
-		unsigned written = 0;
+		unsigned writtenBytes = 0;
 		PRINTI(TELEMETRY_TAG, "Sending %ld data records.\n", numberOfMeasurements);
 		for(int measurement = 0; measurement < numberOfMeasurements; measurement++)
 		{
-			written += SendDataRecord2();
-			PRINTI(TELEMETRY_TAG, "Send a data record.\n");
+			const size_type recordWrittenBytes = SendDataRecord();
+			if(recordWrittenBytes == 0)
+			{
+				PRINTI(TELEMETRY_TAG, "Failed to send data record.\n");
+				break;
+			}
+			writtenBytes += recordWrittenBytes;
 		}
-		PRINTI(TELEMETRY_TAG, "Written %u bytes of data records to server\n", written);
+		PRINTI(TELEMETRY_TAG, "Written %u bytes of data records to server\n", writtenBytes);
 	}
 
 	void TelemetryTransmitter::BeginTransmission()
 	{
-		_socket.SetTimeout(0, 0'500);
-		//_sendStack.Clear();
-		//gView.ResetAll();
+		PRINTI(TELEMETRY_TAG, "Sending indefinite\n");
 		do
 		{
-			SendDataRecord2();
-			PRINTI(TELEMETRY_TAG, "Send a data record.\n");
+			_socket.SetTimeout(2, 0);
+			auto writtenBytes = SendDataRecord();
+			if(writtenBytes == 0)
+			{
+				PRINTI(TELEMETRY_TAG, "Failed to send data record.\n");
+				break;
+			}
+			_socket.SetTimeout(0, 4'000);
 		}
 		while(!_socket.Check(file::BDF_COMMANDS::REQ_STOP));
 	}
 
-	void TelemetryTransmitter::SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize) 
+	void TelemetryTransmitter::TryAgain()
+	{
+		// Some error occurred: Could not open socket, Connection lost, etc.
+		PRINTI("[Socket:]", "Closing socket and reopening.\n");
+		_socket.Close();
+		_socket.Open();
+	}
+
+	TCPError TelemetryTransmitter::SendHeadersAttribute(size_type const& attributeOffset, size_type const& attributeSize) 
 	{
 		size_t header = 0;
 		for(mem::SensorData<mem::int24_t> const& sensor : _sensorView)
@@ -170,13 +184,15 @@ namespace net
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 			for(auto channel = 0; channel < sensor.size(); ++channel)
 			{
-				auto _ = _socket.Send(static_cast<void const*>(&gSignalHeaders[header++]) + attributeOffset, attributeSize);
+				const TCPError error = _socket.Send(static_cast<void const*>(&gSignalHeaders[header++]) + attributeOffset, attributeSize);
+				if(error != TCPError::NO_ERROR) return error;
 			}
 #pragma GCC diagnostic pop
 		}
+		return TCPError::NO_ERROR;
 	}
 
-	TelemetryTransmitter::size_type IRAM_ATTR TelemetryTransmitter::SendDataRecord2() 
+	TelemetryTransmitter::size_type IRAM_ATTR TelemetryTransmitter::SendDataRecord() 
 	{
 		mem::Stack::size_type channel;
 		do
@@ -190,12 +206,10 @@ namespace net
 				}
 				channel += sensor.size();
 			}
+			YIELD_FOR(4);
 		}
 		while (!_sendStack.Full(0, channel));
-		uint64_t start = esp_timer_get_time();
-		TCPError error = _socket.Send(_sendStack.Data(), _stackSize);
-		uint64_t end = esp_timer_get_time();
-		printf("Send took %llu milliseconds (%llu microseconds)\n", (end - start) / 1000, (end - start));
+		TRANSMISSION_ERROR(_socket.Send(_sendStack.Data(), _stackSize));
 		_sendStack.Clear();
 		return _stackSize;
 	}

@@ -195,20 +195,6 @@ namespace device
 		
 		std::memcpy(_ecg.channels, rxData.data(), sizeof(ecg_t));
 		_nextTime = timepoint_t::clock::now() + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::ADS1299::SAMPLE_RATE));
-
-		//_ecgBuffer.Lock();
-		//DEBUG_VOLATILE util::byte* target_buffer = static_cast<util::byte*>(data);
-		//DEBUG_VOLATILE auto rxPtr = rxData.data() + sizeof(status_t);
-		//for(util::byte channel = 0; channel < buf.ChannelCount(); channel++, target_buffer = static_cast<util::byte*>(buf.ChangeChannel(data, channel)))
-		//{
-		//	std::copy(rxPtr, rxPtr + sizeof(voltage_t), target_buffer);
-		//	rxPtr += sizeof(voltage_t);
-		//}
-		//buf.Unlock();
-
-		//std::int32_t tempStatusBits;
-		//std::memcpy(&tempStatusBits, &rxData[0], 3);
-		//_statusBits = tempStatusBits;
 	}
 
 	void ADS1299::Handler()
@@ -277,17 +263,6 @@ namespace device
 				const timepoint_t now = timepoint_t::clock::now();
 				if (gpio_get_level(config::ADS1299::N_DRDY_PIN) == 1)
 				{
-					/*
-					if(now >= _nextTime)
-					{
-						*static_cast<ecg_t*>(_ecgBuffer.CurrentWrite()) = ecg_t
-						{
-							.channels = {{(int32_t)64'000}, {(int32_t)64'000}, {(int32_t)64'000}, {(int32_t)64'000}}
-						};
-						_ecgBuffer.WriteAdvance()
-						_nextTime = now + std::chrono::milliseconds(config::sample_rate_to_us_with_deviation(config::ADS1299::SAMPLE_RATE));
-					}
-					*/
 					break;
 				}
 				_state = State::CaptureData;

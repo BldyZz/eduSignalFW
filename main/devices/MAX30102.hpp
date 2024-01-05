@@ -49,7 +49,6 @@ namespace device
 		bool IsEmpty() const;
 
 		oxi_sample        sample; 
-		timepoint_t       _nextTime;
 		int32_t           _numberOfSamples;
 		StaticSemaphore_t _mutexBuffer{};
 		State             _state;
